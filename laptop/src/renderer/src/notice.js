@@ -7,13 +7,29 @@ const kind = params.get('kind') === 'sprite' ? 'sprite' : 'gif';
 const name = params.get('name') || '';
 const size = Number(params.get('size') || 0);
 
-/* Two arrivals, one card. The gif needs a decision from him ("use this one?");
-   the sprite is already on the light table, so the only thing left to offer is
-   a way back to the window. */
+/* Two arrivals, one card. A download needs a decision from him ("use this
+   one?"); the file from the tablet is already on the light table, so the only
+   thing left to offer is a way back to the window. */
 const COPY = {
-  gif: { tag: 'gif landed in downloads', accept: 'Use it →', mime: 'image/gif' },
-  sprite: { tag: 'sprite arrived from the tablet', accept: 'Show me →', mime: 'image/png' },
+  gif: { tag: 'file landed in downloads', accept: 'Use it →' },
+  sprite: { tag: 'artwork arrived from the tablet', accept: 'Show me →' },
 };
+
+/* The preview's type comes from the file itself. It used to be fixed per kind,
+   which was fine while one side was always a .gif and the other always a .png. */
+const MIME_BY_EXT = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+};
+
+function mimeFor(fileName) {
+  const dot = String(fileName).lastIndexOf('.');
+  return (dot > 0 && MIME_BY_EXT[fileName.slice(dot).toLowerCase()]) || 'application/octet-stream';
+}
 
 function fmtSize(n) {
   if (!n) return '';
@@ -46,7 +62,7 @@ window.addEventListener('keydown', (e) => {
   try {
     const res = await window.nekuNotice.preview();
     if (!res || !res.ok || !res.data) return;
-    const blob = new Blob([new Uint8Array(res.data)], { type: COPY[kind].mime });
+    const blob = new Blob([new Uint8Array(res.data)], { type: mimeFor(name) });
     const img = document.createElement('img');
     img.alt = '';
     img.src = URL.createObjectURL(blob);
