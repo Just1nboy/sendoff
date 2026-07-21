@@ -1,0 +1,3 @@
+[submodule "tablet"]
+	path = tablet
+	url = https://github.com/Just1nboy/neku-tablet.git
