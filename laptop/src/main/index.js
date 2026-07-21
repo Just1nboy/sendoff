@@ -14,6 +14,7 @@ import * as realDrive from './drive.js';
 import * as mockDrive from './drive-mock.js';
 import { runAutopilot } from './autopilot.js';
 import { startGifWatch, stopGifWatch, wasAnnounced, watchIsActive } from './gif-watch.js';
+import { matchPreset, presetById, resolveNaming, validateNaming } from './naming.mjs';
 import { hideNotice, showNotice } from './notice.js';
 
 const MOCK = process.env.NEKU_MOCK === '1';
@@ -42,13 +43,41 @@ const store = new Store({ name: MOCK ? 'neku-mock' : 'neku' });
 // whatever batch the last run happened to leave open
 if (process.env.NEKU_SHOT_DIR) store.delete('currentBatch');
 
+/* NEKU_PRESET=photo boots as a different trade, so the same self-driving run can
+   prove the flow is not tied to one set of names. Unset means the default. */
+if (process.env.NEKU_PRESET) {
+  const preset = presetById(process.env.NEKU_PRESET);
+  if (preset) store.set('naming', resolveNaming(preset.naming));
+  else store.delete('naming');
+} else if (process.env.NEKU_SHOT_DIR) {
+  // a shot run that names no preset must not inherit the last run's naming
+  store.delete('naming');
+}
+
+/* The naming templates, merged the same way credentials are: a build can ship
+   preconfigured for a trade, and anything typed in-app wins over that. Missing
+   pieces fall back to the defaults, so a settings file written by an older
+   version still resolves to a complete set. */
+function effectiveNaming() {
+  return resolveNaming({
+    ...(BAKED.naming || {}),
+    ...(SIDECAR.naming || {}),
+    ...(store.get('naming') || {}),
+  });
+}
+
 function effectiveSettings() {
   const pick = (key) => store.get(key) || SIDECAR[key] || BAKED[key] || FALLBACKS[key] || '';
+  const naming = effectiveNaming();
+  const preset = matchPreset(naming);
   return {
     clientId: pick('clientId'),
     clientSecret: pick('clientSecret'),
     stagingName: pick('stagingName'),
     rootName: pick('rootName'),
+    naming,
+    // null means the templates have been hand-edited away from every preset
+    presetId: preset ? preset.id : null,
   };
 }
 
@@ -123,7 +152,7 @@ function createWindow() {
   if (process.env.NEKU_SHOT_DIR) {
     win.webContents.once('did-finish-load', () => {
       const shotDir = path.resolve(process.env.NEKU_SHOT_DIR);
-      runAutopilot(win, shotDir, MOCK).catch((err) => {
+      runAutopilot(win, shotDir, MOCK, effectiveNaming()).catch((err) => {
         console.error('[autopilot]', err);
         // a packaged run has no console attached, so the reason has to land on
         // disk or a failure there is just an exit code with nothing behind it
@@ -193,6 +222,16 @@ function onGifFound(gif) {
   showNotice({ kind: 'gif', name: gif.name, size: gif.size }, PRELOAD());
 }
 
+/* The watcher looks for whatever the attachment is going to be. A template with
+   a fixed extension ("bouncy.gif") makes that exact, so nothing else in
+   Downloads raises a card; an open-ended one falls back to the general set. */
+function watchedExtensions() {
+  const template = String(effectiveNaming().attachedTemplate || '');
+  if (template.includes('{ext}')) return null;
+  const ext = path.extname(template).toLowerCase();
+  return ext ? [ext] : null;
+}
+
 function beginGifWatch() {
   if (process.env.NEKU_WATCH_DIR) {
     // the autopilot drops a real gif in to prove the whole chain; pointing it at
@@ -202,7 +241,7 @@ function beginGifWatch() {
   } else {
     watchedFolder = app.getPath('downloads');
   }
-  startGifWatch(watchedFolder, onGifFound);
+  startGifWatch(watchedFolder, onGifFound, watchedExtensions());
 }
 
 /** Only a gif this app announced is worth reading off disk for the renderer. */
@@ -237,6 +276,17 @@ handle('state:get', () => currentState());
 handle('settings:save', (_e, partial) => {
   const allowed = ['clientId', 'clientSecret', 'stagingName', 'rootName'];
   const before = effectiveSettings().clientId;
+
+  /* Naming is validated before anything is written: a template that fills in to
+     an empty string would fail at the worst possible moment, mid-delivery, with
+     the client already waiting. */
+  if (partial && partial.naming) {
+    const naming = resolveNaming(partial.naming);
+    const errors = validateNaming(naming);
+    if (errors) throw new Error(Object.values(errors)[0]);
+    store.set('naming', naming);
+  }
+
   for (const key of allowed) {
     if (key in partial) {
       const value = String(partial[key] ?? '').trim();
@@ -249,6 +299,8 @@ handle('settings:save', (_e, partial) => {
   if (effectiveSettings().clientId !== before) {
     store.delete('tokens');
   }
+  // changing the attachment's name changes what is worth watching Downloads for
+  if (partial && partial.naming) beginGifWatch();
   return currentState();
 });
 
@@ -264,12 +316,14 @@ handle('auth:logout', async () => {
 
 handle('batch:list', async () => {
   const drive = getDriveOrThrow();
-  return driveOps.listBatches(drive, effectiveSettings().rootName);
+  const settings = effectiveSettings();
+  return driveOps.listBatches(drive, settings.rootName, settings.naming);
 });
 
 handle('batch:create', async () => {
   const drive = getDriveOrThrow();
-  return driveOps.createBatch(drive, effectiveSettings().rootName);
+  const settings = effectiveSettings();
+  return driveOps.createBatch(drive, settings.rootName, settings.naming);
 });
 
 /** Pick a batch to work in, or pass null to go back to the batch menu. */
@@ -307,30 +361,35 @@ handle('file:bytes', async (_e, fileId) => {
   return driveOps.getFileBytes(drive, fileId);
 });
 
-/** Drop the parts of a name Windows will not accept in a file name, and make
-    sure what comes back still ends in .png. */
-function safeSpriteFileName(name) {
-  const base = String(name || 'sprite.png')
+/** Drop the parts of a name Windows will not accept in a file name, keeping
+    whatever extension it already had. */
+function safeSaveFileName(name) {
+  const base = String(name || 'artwork.png')
     .replace(/[\\/:*?"<>|]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (!base) return 'sprite.png';
-  return base.toLowerCase().endsWith('.png') ? base : `${base}.png`;
+  if (!base) return 'artwork.png';
+  return path.extname(base) ? base : `${base}.png`;
 }
 
-/** Put the selected sprite on this machine's disk, so he can animate it.
+/** Put the selected file on this machine's disk, so he can work on it locally.
+    This is the point of the whole two-surface arrangement, not a convenience.
     sprite = { kind:'drive', id, name } | { kind:'local', bytes, name } */
 handle('sprite:save', async (_e, sprite) => {
   const bytes =
     sprite.kind === 'drive'
       ? await driveOps.getFileBytes(getDriveOrThrow(), sprite.id)
       : Buffer.from(sprite.bytes);
-  // reopen wherever he saved last: the animation tool's folder, most likely
+  // reopen wherever he saved last: the editing tool's folder, most likely
   const dir = store.get('lastSaveDir') || app.getPath('downloads');
+  const fileName = safeSaveFileName(sprite.name);
+  const ext = path.extname(fileName).slice(1).toLowerCase();
   const res = await dialog.showSaveDialog(win, {
-    title: 'Save sprite',
-    defaultPath: path.join(dir, safeSpriteFileName(sprite.name)),
-    filters: [{ name: 'PNG image', extensions: ['png'] }],
+    title: 'Save file',
+    defaultPath: path.join(dir, fileName),
+    filters: ext
+      ? [{ name: `${ext.toUpperCase()} file`, extensions: [ext] }, { name: 'All files', extensions: ['*'] }]
+      : [{ name: 'All files', extensions: ['*'] }],
   });
   if (res.canceled || !res.filePath) return { canceled: true };
   await fs.promises.writeFile(res.filePath, bytes);
@@ -348,7 +407,8 @@ handle('shell:reveal', (_e, filePath) => {
 
 handle('client:check', async (_e, clientName) => {
   const drive = getDriveOrThrow();
-  return driveOps.checkClientFolder(drive, effectiveSettings().rootName, clientName);
+  const settings = effectiveSettings();
+  return driveOps.checkClientFolder(drive, settings.rootName, clientName, settings.naming);
 });
 
 handle('deliver', async (event, payload) => {
@@ -366,11 +426,15 @@ handle('deliver', async (event, payload) => {
     {
       rootName: settings.rootName,
       stagingName: settings.stagingName,
+      naming: settings.naming,
       batchName: batch.name,
+      batchNumber: batch.number ?? null,
       stagingId: payload.stagingId,
       sprite,
       clientName: payload.clientName,
       gifBytes: Buffer.from(payload.gifBytes),
+      // the dragged file's own name, so {name} and {ext} have something to read
+      gifName: payload.gifName || '',
     },
     (step) => event.sender.send('deliver:step', step)
   );

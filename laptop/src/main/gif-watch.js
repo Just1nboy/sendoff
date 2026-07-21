@@ -1,15 +1,19 @@
-/* Watches the Downloads folder for a finished .gif.
+/* Watches the Downloads folder for the finished attachment.
 
-   He animates on ezgif in the browser and hits download, which means the gif
-   lands while Neku is sitting behind the browser window. Rather than make him
-   find the window and drag the file across, Neku notices it arriving and offers
-   it. Dragging still works exactly as before; this is a shortcut, not a
-   replacement.
+   The last step of the work happens in a browser tool (ezgif, an export, a
+   render) and the finished file lands in Downloads while Neku sits behind that
+   window. Rather than make him find the window and drag the file across, Neku
+   notices it arriving and offers it. Dragging still works exactly as before;
+   this is a shortcut, not a replacement.
+
+   Which extensions count comes from the naming templates: if the attachment is
+   always a .gif, only a .gif is news. An open-ended template falls back to the
+   set below, since guessing wrong costs one ignorable card.
 
    Chrome writes a .crdownload placeholder first and renames it once the transfer
-   finishes, so an event carrying a .gif name usually means it is already whole.
+   finishes, so an event carrying a real name usually means it is already whole.
    The settle check afterwards covers the browsers that write in place instead —
-   offering a half-written gif would put a broken animation in front of a client. */
+   offering a half-written file would put a broken delivery in front of a client. */
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -17,9 +21,19 @@ const SETTLE_POLL_MS = 220;
 const SETTLE_MAX_MS = 15000;
 const EVENT_DEBOUNCE_MS = 150;
 
+/** What a freelancer plausibly downloads to deliver, when nothing narrower is set. */
+export const DEFAULT_WATCH_EXTS = [
+  '.gif', '.png', '.jpg', '.jpeg', '.webp', '.svg',
+  '.mp4', '.webm', '.pdf', '.zip', '.psd',
+];
+
 let watcher = null;
 let watchedDir = null;
+let watchedExts = DEFAULT_WATCH_EXTS;
 let startedAt = 0;
+
+const isWatchedName = (name) =>
+  watchedExts.some((ext) => String(name).toLowerCase().endsWith(ext));
 const announced = new Set(); // "name@mtimeMs", so a re-download of the same name still counts
 
 /** Wait for the file to stop growing. Returns its final size, or null if it
@@ -76,13 +90,15 @@ async function consider(name, onGif) {
 }
 
 /**
- * Start watching `dir` for gifs. `onGif({ path, name, size, foundAt })` fires
- * once per arrival. Returns false when the folder cannot be watched at all, in
- * which case the drag-and-drop path is simply the only way in.
+ * Start watching `dir`. `onGif({ path, name, size, foundAt })` fires once per
+ * arrival. Returns false when the folder cannot be watched at all, in which case
+ * the drag-and-drop path is simply the only way in.
+ * `exts` narrows what counts, e.g. ['.gif'].
  */
-export function startGifWatch(dir, onGif) {
+export function startGifWatch(dir, onGif, exts) {
   stopGifWatch();
   watchedDir = dir;
+  watchedExts = Array.isArray(exts) && exts.length ? exts.map((e) => e.toLowerCase()) : DEFAULT_WATCH_EXTS;
   startedAt = Date.now();
   const pending = new Map();
 
@@ -90,7 +106,7 @@ export function startGifWatch(dir, onGif) {
     watcher = fs.watch(dir, { persistent: false }, (_event, filename) => {
       if (!filename) return;
       const name = String(filename);
-      if (!name.toLowerCase().endsWith('.gif')) return;
+      if (!isWatchedName(name)) return;
       // one arrival produces a burst of events; act on the last one
       clearTimeout(pending.get(name));
       pending.set(
@@ -127,7 +143,7 @@ export function stopGifWatch() {
   watcher = null;
 }
 
-/** True if `filePath` is a gif this watcher announced. The renderer asks for
+/** True if `filePath` is a file this watcher announced. The renderer asks for
     bytes by path, and only a path we ourselves offered is worth reading. */
 export function wasAnnounced(filePath) {
   if (typeof filePath !== 'string' || !filePath) return false;
@@ -135,7 +151,7 @@ export function wasAnnounced(filePath) {
   const resolved = path.resolve(filePath);
   if (path.dirname(resolved) !== path.resolve(watchedDir)) return false;
   const name = path.basename(resolved);
-  if (!name.toLowerCase().endsWith('.gif')) return false;
+  if (!isWatchedName(name)) return false;
   for (const key of announced) {
     if (key.slice(0, key.lastIndexOf('@')) === name) return true;
   }

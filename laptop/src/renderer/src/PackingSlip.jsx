@@ -1,12 +1,24 @@
 import React, { useRef, useState } from 'react';
 
-const STEPS = [
-  { id: 'folders', label: 'Batch + client folder ready' },
-  { id: 'sprite', label: 'Sprite renamed & filed' },
-  { id: 'gif', label: 'bouncy.gif uploaded' },
-  { id: 'share', label: 'Sharing: anyone with the link' },
-  { id: 'link', label: 'Link fetched' },
-];
+/* The steps name the actual files where it can, because watching
+   "Aiko_sprite.png filed" stamp itself is the confirmation that the naming
+   templates did what the preview promised. */
+function stepsFor(stagedName, attachedName) {
+  return [
+    { id: 'folders', label: 'Batch + client folder ready' },
+    { id: 'sprite', label: stagedName ? `${stagedName} filed` : 'Artwork renamed & filed' },
+    { id: 'gif', label: attachedName ? `${attachedName} uploaded` : 'Attachment uploaded' },
+    { id: 'share', label: 'Sharing: anyone with the link' },
+    { id: 'link', label: 'Link fetched' },
+  ];
+}
+
+const extOf = (name) => {
+  const dot = String(name || '').lastIndexOf('.');
+  return dot > 0 ? name.slice(dot).toLowerCase() : '';
+};
+
+const PREVIEWABLE = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
 
 function fmtSize(n) {
   if (!n) return '';
@@ -20,6 +32,9 @@ export default function PackingSlip({
   folderExists,
   namePreview,
   batchName,
+  attachedName,
+  attachedExt,
+  stagedName,
   gif,
   onGif,
   foundGif,
@@ -35,6 +50,8 @@ export default function PackingSlip({
 }) {
   const gifInput = useRef(null);
   const [copied, setCopied] = useState(false);
+  const steps = stepsFor(stagedName, attachedName);
+  const previewable = Boolean(gif) && PREVIEWABLE.includes(extOf(gif.file.name));
   const running = delivery && delivery.phase === 'run';
   // the corner notice is the main offer; this is the quiet second chance for
   // when it timed out while he was still animating
@@ -108,18 +125,23 @@ export default function PackingSlip({
         {folderExists && (
           <div className="warnstrip">
             A folder with this name already exists
-            {folderExists.batchName ? ` in ${folderExists.batchName}` : ''}. Repeat clients
-            aren&rsquo;t a thing, so double-check the spelling. Delivering this one into{' '}
-            {batchName} anyway.
+            {folderExists.batchName ? ` in ${folderExists.batchName}` : ''}. Check the spelling
+            if this is meant to be someone new. Delivering this one into {batchName} anyway.
           </div>
         )}
       </div>
 
       <div className="field">
-        <label>Animation</label>
+        <label>{attachedExt ? `Attachment (${attachedExt})` : 'Attachment'}</label>
         {gif ? (
           <div className="gif-slot filled checker">
-            <img src={gif.url} alt="Gif preview" />
+            {/* preview-before-upload is the requirement, so show the file where it
+                can be shown and say what it is where it cannot */}
+            {previewable ? (
+              <img src={gif.url} alt="Attachment preview" />
+            ) : (
+              <div className="filekind">{(extOf(gif.file.name) || 'file').replace('.', '').toUpperCase()}</div>
+            )}
             <div className="filecard">
               <span className="fname">{gif.file.name}</span>
               <span className="fsize">{fmtSize(gif.file.size)}</span>
@@ -136,14 +158,16 @@ export default function PackingSlip({
             onClick={() => gifInput.current.click()}
             disabled={running}
           >
-            drag the gif from Downloads here
-            <span className="hint-sub">or click to browse (it becomes bouncy.gif)</span>
+            drag the file from Downloads here
+            <span className="hint-sub">
+              or click to browse{attachedName ? ` (it becomes ${attachedName})` : ''}
+            </span>
           </button>
         )}
         <input
           ref={gifInput}
           type="file"
-          accept=".gif,image/gif"
+          accept={attachedExt || undefined}
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files && e.target.files[0];
@@ -170,15 +194,15 @@ export default function PackingSlip({
               ? 'Waiting for a sprite…'
               : !clientName.trim()
                 ? 'Name the client first'
-                : 'Add the gif to deliver'}
+                : 'Add the attachment to deliver'}
         </button>
       )}
 
       {running && (
         <div className="steps">
-          {STEPS.map((s) => {
-            const idx = STEPS.findIndex((x) => x.id === delivery.step);
-            const mine = STEPS.findIndex((x) => x.id === s.id);
+          {steps.map((s) => {
+            const idx = steps.findIndex((x) => x.id === delivery.step);
+            const mine = steps.findIndex((x) => x.id === s.id);
             const state = mine < idx ? 'done' : mine === idx ? 'active' : 'todo';
             return (
               <div key={s.id} className={`step ${state}`}>

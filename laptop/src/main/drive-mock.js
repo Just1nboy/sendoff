@@ -5,11 +5,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import {
-  GIF_FILE_NAME,
-  batchFolderName,
-  cleanClientName,
-  nextBatchNumber,
-  spriteFileName,
+  applyTemplate,
+  cleanName,
+  nextProjectNumber,
+  parseProjectNumber,
+  presetById,
+  projectFolderName,
+  resolveNaming,
+  templateVars,
 } from './naming.mjs';
 
 // 1x1 transparent png, in case resources/mock-sprite.png is missing
@@ -18,9 +21,18 @@ const FALLBACK_PNG = Buffer.from(
   'base64'
 );
 
-/* NEKU_MOCK_EMPTY=1 wipes the seeded batch so the friend's day-one screen
-   ("no batches yet" -> Start Batch 5) can be driven and screenshotted. */
+/* NEKU_MOCK_EMPTY=1 wipes the seeded batch so the day-one screen
+   ("no projects yet" -> Start Batch 5) can be driven and screenshotted. */
 const EMPTY = process.env.NEKU_MOCK_EMPTY === '1';
+
+/* The seeded batch has to be named by whatever naming is active, or a run under
+   a different preset would start with a folder its own template cannot parse and
+   the menu would look empty. NEKU_PRESET picks one; see index.js. */
+const MOCK_NAMING = resolveNaming(
+  (presetById(process.env.NEKU_PRESET || '') || {}).naming
+);
+const SEEDED_NUMBER = MOCK_NAMING.firstProjectNumber;
+const SEEDED_NAME = projectFolderName(MOCK_NAMING.projectTemplate, SEEDED_NUMBER);
 
 const state = {
   staged: [
@@ -32,19 +44,18 @@ const state = {
       modifiedTime: new Date(Date.now() - 13 * 60 * 1000).toISOString(),
     },
   ],
-  // one finished batch already on the shelf, so the batch menu has something to pick.
-  // Batch 5 because that is the first number Neku itself ever creates.
+  // one finished batch already on the shelf, so the batch menu has something to pick
   batches: EMPTY
     ? []
     : [
         {
-          id: 'mock-batch-5',
-          name: 'Batch 5',
-          number: 5,
+          id: `mock-batch-${SEEDED_NUMBER}`,
+          name: SEEDED_NAME,
+          number: SEEDED_NUMBER,
           createdTime: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
         },
       ],
-  clientFolders: EMPTY ? [] : [{ name: 'OldClientFromMarch', batchName: 'Batch 5' }],
+  clientFolders: EMPTY ? [] : [{ name: 'OldClientFromMarch', batchName: SEEDED_NAME }],
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -53,12 +64,15 @@ export function getDrive() {
   return { mock: true };
 }
 
-export async function listBatches() {
+export async function listBatches(_drive, _rootName, namingIn) {
   await sleep(200);
+  const naming = resolveNaming(namingIn);
   const names = state.batches.map((b) => b.name);
+  const next = nextProjectNumber(names, naming.projectTemplate, naming.firstProjectNumber);
   return {
     rootId: 'mock-root',
-    nextNumber: nextBatchNumber(names),
+    nextNumber: next,
+    nextName: projectFolderName(naming.projectTemplate, next),
     batches: state.batches
       .map((b) => ({
         ...b,
@@ -68,12 +82,17 @@ export async function listBatches() {
   };
 }
 
-export async function createBatch() {
+export async function createBatch(_drive, _rootName, namingIn) {
   await sleep(250);
-  const number = nextBatchNumber(state.batches.map((b) => b.name));
+  const naming = resolveNaming(namingIn);
+  const number = nextProjectNumber(
+    state.batches.map((b) => b.name),
+    naming.projectTemplate,
+    naming.firstProjectNumber
+  );
   const batch = {
     id: `mock-batch-${number}`,
-    name: batchFolderName(number),
+    name: projectFolderName(naming.projectTemplate, number),
     number,
     createdTime: new Date().toISOString(),
   };
@@ -129,15 +148,21 @@ export async function getFileBytes() {
 
 export async function checkClientFolder(_drive, _rootName, clientName) {
   await sleep(200);
-  const name = cleanClientName(clientName);
+  const name = cleanName(clientName);
   // like the real one, this looks across every batch, not just the current one
   const hit = state.clientFolders.find((f) => f.name.toLowerCase() === name.toLowerCase());
   return { exists: Boolean(hit), batchName: hit ? hit.batchName : null };
 }
 
 export async function deliver(_drive, opts, onStep) {
-  const clientName = cleanClientName(opts.clientName);
+  const naming = resolveNaming(opts.naming);
+  const clientName = cleanName(opts.clientName);
   const batchName = opts.batchName;
+  const base = {
+    clientName,
+    projectName: batchName,
+    projectNumber: opts.batchNumber ?? parseProjectNumber(naming.projectTemplate, batchName),
+  };
   for (const step of ['folders', 'sprite', 'gif', 'share', 'link']) {
     onStep(step);
     await sleep(450);
@@ -153,8 +178,14 @@ export async function deliver(_drive, opts, onStep) {
     link: `https://drive.google.com/drive/folders/mock-${encodeURIComponent(clientName)}`,
     folderName: clientName,
     batchName,
-    spriteName: spriteFileName(clientName),
-    gifName: GIF_FILE_NAME,
+    spriteName: applyTemplate(
+      naming.stagedTemplate,
+      templateVars({ ...base, fileName: opts.sprite.name })
+    ),
+    gifName: applyTemplate(
+      naming.attachedTemplate,
+      templateVars({ ...base, fileName: opts.gifName })
+    ),
     notices: existed
       ? [`Folder "${clientName}" already existed in ${batchName}. Files were added into it.`]
       : [],

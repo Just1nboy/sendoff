@@ -7,11 +7,23 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog } from 'electron';
 import { makeBouncyGif } from './test-gif.mjs';
 import { discardStaged, seedStaged } from './drive-mock.js';
+import { projectFolderName, resolveNaming } from './naming.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function runAutopilot(win, dir, mock = true) {
+/**
+ * @param naming the templates the app booted with. The run asserts against the
+ *   names those produce rather than against "Batch 5"/"Batch 6", so the same
+ *   script verifies the flow under any preset (see NEKU_PRESET).
+ */
+export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await fs.mkdir(dir, { recursive: true });
+
+  const naming = resolveNaming(namingIn);
+  // the mock seeds one project at the starting number, so the one the run opens
+  // is always the next after it
+  const seededProject = projectFolderName(naming.projectTemplate, naming.firstProjectNumber);
+  const openProject = projectFolderName(naming.projectTemplate, naming.firstProjectNumber + 1);
 
   /* A packaged exe is a GUI app with nothing attached to stdout, so when the
      run is driven from release\ the console output goes nowhere. The transcript
@@ -69,8 +81,10 @@ export async function runAutopilot(win, dir, mock = true) {
       `(document.querySelector('.batch-menu .aside') || {}).textContent || ''`
     );
     log(`[autopilot] first run: ${rows} batches, cta "${cta}", note "${empty}"`);
-    if (rows !== 0 || cta !== 'Start Batch 5') {
-      throw new Error(`first run should offer Start Batch 5, offered "${cta}" with ${rows} rows`);
+    if (rows !== 0 || cta !== `Start ${seededProject}`) {
+      throw new Error(
+        `first run should offer Start ${seededProject}, offered "${cta}" with ${rows} rows`
+      );
     }
     await shot('first-run.png');
     log('[autopilot] first-run check complete');
@@ -85,8 +99,8 @@ export async function runAutopilot(win, dir, mock = true) {
     `(document.querySelector('.batch-menu .batch-row .fname') || {}).textContent || ''`
   );
   log(`[autopilot] batch menu: ${batchRows} existing batch(es), first: "${firstRow}"`);
-  if (batchRows < 1 || firstRow !== 'Batch 5') {
-    throw new Error('batch menu did not list the existing batch');
+  if (batchRows < 1 || firstRow !== seededProject) {
+    throw new Error(`batch menu did not list the existing batch "${seededProject}"`);
   }
   await shot('0-batches.png');
 
@@ -97,8 +111,8 @@ export async function runAutopilot(win, dir, mock = true) {
     `(document.querySelector('.bar .batch-chip') || {}).textContent || ''`
   );
   log(`[autopilot] header batch chip: "${chip}"`);
-  if (!chip.startsWith('Batch 6')) {
-    throw new Error(`expected to be working in Batch 6, header says "${chip}"`);
+  if (!chip.startsWith(openProject)) {
+    throw new Error(`expected to be working in ${openProject}, header says "${chip}"`);
   }
 
   // let the first staging poll land
@@ -166,9 +180,21 @@ export async function runAutopilot(win, dir, mock = true) {
      The card only earns its keep when he is NOT looking at Neku, and it is
      deliberately suppressed when he is, so the window has to be blurred here or
      the test would be checking the wrong branch. */
+  /* blur() alone is a request, not a guarantee: on Windows, with no other window
+     for the OS to hand focus to, Neku can simply stay focused and the card is
+     then correctly suppressed, failing the test for the wrong reason. Hiding is
+     the one state the window cannot be focused in, and "Show me" brings it back
+     the same way it would from the tray. */
   win.blur();
   await sleep(400);
+  if (win.isFocused()) {
+    win.hide();
+    for (let i = 0; i < 20 && win.isFocused(); i += 1) await sleep(100);
+  }
   log(`[autopilot] window focused while testing sprite arrival: ${win.isFocused()}`);
+  if (win.isFocused()) {
+    throw new Error('could not blur the window, so the sprite-notice test would check the suppressed branch');
+  }
 
   seedStaged({ id: 'mock-sprite-arrival', name: 'kaito_final.png' });
   await js(`window.__nekuTest.refresh()`);
@@ -313,7 +339,7 @@ export async function runAutopilot(win, dir, mock = true) {
     `(document.querySelector('.zone-right .note.mono') || {}).textContent || ''`
   );
   log(`[autopilot] destination preview: "${preview}"`);
-  if (!preview.endsWith('/Batch 6/Aiko')) {
+  if (!preview.endsWith(`/${openProject}/Aiko`)) {
     throw new Error(`destination preview does not point into the batch: "${preview}"`);
   }
   await shot('2-packed.png');
@@ -373,8 +399,8 @@ export async function runAutopilot(win, dir, mock = true) {
   if (!latest || latest.clientName !== 'Aiko' || !latest.link) {
     throw new Error('finished delivery was not recorded in history');
   }
-  if (latest.batchName !== 'Batch 6') {
-    throw new Error(`delivery was recorded under "${latest.batchName}", expected Batch 6`);
+  if (latest.batchName !== openProject) {
+    throw new Error(`delivery was recorded under "${latest.batchName}", expected ${openProject}`);
   }
 
   await shot('3-sealed.png');
@@ -411,7 +437,7 @@ export async function runAutopilot(win, dir, mock = true) {
     `(document.querySelector('.zone-right .warnstrip') || {}).textContent || ''`
   );
   log(`[autopilot] cross-batch typo warning: "${warn}"`);
-  if (!warn.includes('Batch 5')) {
+  if (!warn.includes(seededProject)) {
     throw new Error('typo guard did not report the batch the existing client is in');
   }
 
@@ -422,7 +448,7 @@ export async function runAutopilot(win, dir, mock = true) {
   const rows = await js(`document.querySelectorAll('.batch-menu .batch-row').length`);
   log(`[autopilot] batch menu after one delivery: ${rows} batches`);
   if (rows !== 2) {
-    throw new Error(`expected Batch 5 and Batch 6 in the menu, saw ${rows}`);
+    throw new Error(`expected ${seededProject} and ${openProject} in the menu, saw ${rows}`);
   }
   await shot('5-batch-switch.png');
   await js(`document.querySelectorAll('.batch-menu .batch-row')[1].click()`); // Batch 5
@@ -431,7 +457,7 @@ export async function runAutopilot(win, dir, mock = true) {
     `(document.querySelector('.bar .batch-chip') || {}).textContent || ''`
   );
   log(`[autopilot] reopened batch: "${backChip}"`);
-  if (!backChip.startsWith('Batch 5')) {
+  if (!backChip.startsWith(seededProject)) {
     throw new Error(`selecting an existing batch failed, header says "${backChip}"`);
   }
 
@@ -470,6 +496,33 @@ export async function runAutopilot(win, dir, mock = true) {
     throw new Error(`Remove left ${stillStaged} sprite(s) in staging`);
   }
   await shot('6-after-remove.png');
+
+  /* ---- the naming settings ----
+     This screen is where the app stops being about one trade, so the run has to
+     prove it opens, shows the templates actually in force, and previews what
+     they produce before anyone commits a real delivery to them. */
+  await js(`document.querySelector('.bar .iconbtn[aria-label="Settings"]').click()`);
+  await sleep(700);
+  const presetCount = await js(`document.querySelectorAll('.sheet .preset-row .btn').length`);
+  const projectTemplate = await js(`(document.getElementById('s-project')||{}).value||''`);
+  const stagedTemplate = await js(`(document.getElementById('s-staged')||{}).value||''`);
+  const attachedTemplate = await js(`(document.getElementById('s-attached')||{}).value||''`);
+  const example = await js(
+    `Array.from(document.querySelectorAll('.sheet .note.mono')).map(n=>n.textContent).join(' | ')`
+  );
+  log(
+    `[autopilot] settings: ${presetCount} presets, project "${projectTemplate}",` +
+      ` staged "${stagedTemplate}", attached "${attachedTemplate}"`
+  );
+  log(`[autopilot] settings example: "${example}"`);
+  if (presetCount < 2) throw new Error('settings offered no presets to switch between');
+  if (projectTemplate !== naming.projectTemplate || stagedTemplate !== naming.stagedTemplate) {
+    throw new Error('settings did not show the templates actually in force');
+  }
+  if (!example.includes(seededProject)) {
+    throw new Error(`settings preview did not show a real example, showed "${example}"`);
+  }
+  await shot('7-settings.png');
 
   log('[autopilot] complete');
   app.quit();

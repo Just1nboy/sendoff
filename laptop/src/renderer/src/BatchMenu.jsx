@@ -4,7 +4,6 @@
      - start the next batch (the primary button)
      - anything already delivered stays where it is; batches are never merged */
 import React, { useCallback, useEffect, useState } from 'react';
-import { batchFolderName } from '../../main/naming.mjs';
 
 function fmtStarted(iso) {
   if (!iso) return '';
@@ -63,7 +62,8 @@ export default function BatchMenu({ state, onPicked }) {
     return undefined;
   });
 
-  const nextName = batchFolderName(list ? list.nextNumber : 1);
+  // the name comes back with the listing: main owns the templates, not this screen
+  const nextName = (list && list.nextName) || '…';
 
   return (
     <main className="centered-col">

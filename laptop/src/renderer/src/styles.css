@@ -581,6 +581,49 @@ body {
 
 .sheet.wide { width: min(94vw, 880px); }
 
+/* the settings sheet grew sections once naming became configurable */
+.sheet { max-height: 88vh; overflow-y: auto; }
+.sheet::-webkit-scrollbar { width: 10px; }
+.sheet::-webkit-scrollbar-track { background: transparent; }
+.sheet::-webkit-scrollbar-thumb {
+  background: var(--edge);
+  border: 3px solid var(--tray);
+  border-radius: 999px;
+}
+.sheet::-webkit-scrollbar-thumb:hover { background: var(--edge-strong); }
+
+.sheet-section {
+  margin: 22px 0 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--edge-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.sheet-section:first-of-type { border-top: none; padding-top: 0; margin-top: 8px; }
+
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.token-list { display: flex; flex-direction: column; gap: 3px; }
+.token code {
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  margin-right: 6px;
+}
+
+/* an attachment that cannot be shown as an image still has to say what it is */
+.filekind {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  color: var(--ink-ghost);
+}
+
 .history-search {
   display: flex;
   align-items: center;

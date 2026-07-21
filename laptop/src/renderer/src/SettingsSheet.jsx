@@ -1,10 +1,45 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  PRESETS,
+  TOKENS,
+  applyTemplate,
+  matchPreset,
+  projectFolderName,
+  resolveNaming,
+  templateVars,
+  validateNaming,
+} from '../../main/naming.mjs';
+
+/* A live example of what the current templates produce. This is the whole point
+   of the settings screen: nobody should have to deliver a real commission to
+   find out what their own naming rules do. */
+function preview(naming) {
+  try {
+    const number = naming.firstProjectNumber;
+    const projectName = projectFolderName(naming.projectTemplate, number);
+    const vars = (fileName) =>
+      templateVars({ clientName: 'Aiko', projectName, projectNumber: number, fileName });
+    return {
+      project: projectName,
+      staged: applyTemplate(naming.stagedTemplate, vars('sketch.png')),
+      attached: applyTemplate(naming.attachedTemplate, vars('ezgif-4-b2a91c.gif')),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function SettingsSheet({ state, onClose, onChanged }) {
   const [form, setForm] = useState({ ...state.settings });
+  const [naming, setNaming] = useState(() => resolveNaming(state.settings.naming));
   const [error, setError] = useState(null);
   const [watch, setWatch] = useState(null); // { folder, active }
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const setName = (key) => (e) => setNaming({ ...naming, [key]: e.target.value });
+
+  const errors = useMemo(() => validateNaming(naming) || {}, [naming]);
+  const shown = useMemo(() => preview(resolveNaming(naming)), [naming]);
+  const activePreset = matchPreset(naming);
 
   // "why didn't the gif notice appear" should be answerable by looking, not guessing
   useEffect(() => {
@@ -14,7 +49,7 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
   }, []);
 
   async function save() {
-    const res = await window.neku.saveSettings(form);
+    const res = await window.neku.saveSettings({ ...form, naming });
     if (!res.ok) {
       setError(res.message);
       return;
@@ -33,6 +68,135 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet panel" onClick={(e) => e.stopPropagation()}>
         <h2>Settings</h2>
+
+        <h3 className="sheet-section">What you deliver</h3>
+        <div className="field">
+          <label>Start from a preset</label>
+          <div className="preset-row">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                title={p.hint}
+                className={`btn slim${activePreset && activePreset.id === p.id ? ' primary' : ''}`}
+                onClick={() => setNaming(resolveNaming(p.naming))}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+          <div className="note">
+            {activePreset
+              ? activePreset.hint
+              : 'Edited from a preset. Everything below is yours to change.'}
+          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-project">Project folder name</label>
+          <input
+            id="s-project"
+            value={naming.projectTemplate}
+            spellCheck={false}
+            onChange={setName('projectTemplate')}
+          />
+          {errors.projectTemplate && <div className="errbox">{errors.projectTemplate}</div>}
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-first">Start numbering at</label>
+          <input
+            id="s-first"
+            type="number"
+            min="1"
+            value={naming.firstProjectNumber}
+            onChange={(e) => setNaming({ ...naming, firstProjectNumber: Number(e.target.value) })}
+          />
+          <div className="note">
+            Only used before the first project exists. After that the number counts up from the
+            highest one in Drive, and a deleted project never hands its number back.
+          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-staged">Name for the file sent from your phone or tablet</label>
+          <input
+            id="s-staged"
+            value={naming.stagedTemplate}
+            spellCheck={false}
+            onChange={setName('stagedTemplate')}
+          />
+          {errors.stagedTemplate && <div className="errbox">{errors.stagedTemplate}</div>}
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-attached">Name for the file you attach here</label>
+          <input
+            id="s-attached"
+            value={naming.attachedTemplate}
+            spellCheck={false}
+            onChange={setName('attachedTemplate')}
+          />
+          {errors.attachedTemplate && <div className="errbox">{errors.attachedTemplate}</div>}
+          <div className="note">
+            A fixed name like <code>bouncy.gif</code> is fine: the per-client folder is what keeps
+            deliveries apart, not the file name.
+          </div>
+        </div>
+
+        <div className="field">
+          <label>You can use</label>
+          <div className="note token-list">
+            {TOKENS.map((t) => (
+              <span key={t.token} className="token" title={t.help}>
+                <code>{t.token}</code> {t.help}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {shown && (
+          <div className="field">
+            <label>A delivery to a client called Aiko would be</label>
+            <div className="note mono">
+              {form.rootName}/{shown.project}/Aiko/
+              <br />
+              &nbsp;&nbsp;{shown.staged}
+              <br />
+              &nbsp;&nbsp;{shown.attached}
+            </div>
+          </div>
+        )}
+
+        <h3 className="sheet-section">Where it goes</h3>
+        <div className="field">
+          <label htmlFor="s-staging">Staging folder</label>
+          <input
+            id="s-staging"
+            value={form.stagingName}
+            spellCheck={false}
+            onChange={set('stagingName')}
+          />
+          <div className="note">Must match the tablet app&rsquo;s staging folder name exactly.</div>
+        </div>
+        <div className="field">
+          <label htmlFor="s-root">Client folders live under</label>
+          <input id="s-root" value={form.rootName} spellCheck={false} onChange={set('rootName')} />
+        </div>
+        {watch && (
+          <div className="field">
+            <label>Watching for finished files</label>
+            <div className="note mono" title={watch.folder}>
+              {watch.active ? watch.folder : `${watch.folder} (not being watched)`}
+            </div>
+            <div className="note">
+              When a file finishes downloading here, Neku offers it in the corner of the screen.
+              Dragging one onto the window always works too.
+            </div>
+          </div>
+        )}
+
+        <h3 className="sheet-section">Google account</h3>
         <div className="field">
           <label htmlFor="s-cid">OAuth client id</label>
           <input id="s-cid" value={form.clientId} spellCheck={false} onChange={set('clientId')} />
@@ -46,35 +210,14 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
             onChange={set('clientSecret')}
           />
         </div>
-        <div className="field">
-          <label htmlFor="s-staging">Staging folder</label>
-          <input
-            id="s-staging"
-            value={form.stagingName}
-            spellCheck={false}
-            onChange={set('stagingName')}
-          />
-          <div className="note">Must match the tablet app's staging folder name exactly.</div>
-        </div>
-        <div className="field">
-          <label htmlFor="s-root">Client folders live under</label>
-          <input id="s-root" value={form.rootName} spellCheck={false} onChange={set('rootName')} />
-        </div>
-        {watch && (
-          <div className="field">
-            <label>Watching for finished gifs</label>
-            <div className="note mono" title={watch.folder}>
-              {watch.active ? watch.folder : `${watch.folder} (not being watched)`}
-            </div>
-            <div className="note">
-              When a .gif finishes downloading here, Neku offers it in the corner of the
-              screen. Dragging one onto the window always works too.
-            </div>
-          </div>
-        )}
+
         {error && <div className="errbox">{error}</div>}
         <div className="btn-row">
-          <button className="btn primary" onClick={save}>
+          <button
+            className="btn primary"
+            onClick={save}
+            disabled={Object.keys(errors).length > 0}
+          >
             Save
           </button>
           <button className="btn" onClick={onClose}>
