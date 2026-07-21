@@ -1,0 +1,10 @@
+node_modules/
+laptop/out/
+laptop/release/
+laptop/shots*/
+tablet-checks/
+
+# real credentials, never commit these
+laptop/oauth.config.json
+laptop/neku.config.json
+tablet/config.js

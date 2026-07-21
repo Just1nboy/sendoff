@@ -1,0 +1,146 @@
+/* Corner notice. Same three colours as the workbench (black, white, orange);
+   the window itself is transparent so the card can carry its own shadow. */
+
+:root {
+  --board: #141414;
+  --tray: #1a1a1a;
+  --checker-a: #131313;
+  --checker-b: #1a1a1a;
+  --ink: #ffffff;
+  --ink-faint: #8c8c8c;
+  --edge: rgba(255, 255, 255, 0.14);
+  --edge-soft: rgba(255, 255, 255, 0.08);
+  --accent: #ff6a00;
+  --accent-bright: #ff8329;
+  --accent-ink: #000000;
+  --hover: rgba(255, 255, 255, 0.07);
+  --font-ui: Helvetica, 'Helvetica Neue', Arial, 'Segoe UI', sans-serif;
+  --r-s: 2px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: transparent;
+  font-family: var(--font-ui);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+  cursor: default;
+}
+
+.notice {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  padding: 13px 14px 14px;
+  background: var(--board);
+  border: 1px solid var(--edge);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-s);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  animation: rise 220ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notice-body { display: flex; gap: 12px; align-items: center; min-height: 0; }
+
+.notice-thumb {
+  width: 62px;
+  height: 62px;
+  flex: none;
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-s);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.notice-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated; /* it is pixel art; never let it go soft */
+}
+
+.checker {
+  background-color: var(--checker-a);
+  background-image: repeating-conic-gradient(var(--checker-b) 0% 25%, var(--checker-a) 0% 50%);
+  background-size: 12px 12px;
+}
+
+.notice-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.notice-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.notice-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notice-size { font-size: 11.5px; color: var(--ink-faint); }
+
+.notice-actions { display: flex; gap: 8px; margin-top: auto; }
+
+.btn {
+  flex: 1;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--tray);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-s);
+  cursor: pointer;
+}
+
+.btn:hover { background: var(--hover); }
+
+.btn.primary {
+  flex: 1.4;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn.primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
+
+.btn.ghost { background: transparent; color: var(--ink-faint); }
+.btn.ghost:hover { background: var(--hover); color: var(--ink); }
+
+/* how long the notice has left, so it never disappears without warning */
+.notice-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--accent);
+  opacity: 0.5;
+  animation: drain 22s linear both;
+}
+
+@keyframes drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}

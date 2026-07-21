@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:*"
+  />
+  <title>Neku notice</title>
+</head>
+<body>
+  <div class="notice" id="card">
+    <div class="notice-body">
+      <div class="notice-thumb checker" id="thumb"></div>
+      <div class="notice-text">
+        <div class="notice-tag">gif landed in downloads</div>
+        <div class="notice-name" id="name"></div>
+        <div class="notice-size" id="size"></div>
+      </div>
+    </div>
+    <div class="notice-actions">
+      <button class="btn primary" id="btn-use">Use it &rarr;</button>
+      <button class="btn ghost" id="btn-dismiss">Not now</button>
+    </div>
+    <div class="notice-timer" id="timer"></div>
+  </div>
+  <script type="module" src="/src/notice.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "name": "neku-laptop",
+  "productName": "Neku",
+  "version": "1.0.0",
+  "description": "Commission delivery: pull the sprite from staging, pack it with the gif, upload to the client's Drive folder, get the link.",
+  "main": "./out/main/index.js",
+  "author": "Justin",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "mock": "cross-env NEKU_MOCK=1 electron-vite dev",
+    "shots": "cross-env NEKU_MOCK=1 NEKU_SHOT_DIR=shots NEKU_WATCH_DIR=shots/watch electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "test": "node --test tests/naming.test.mjs",
+    "dist": "electron-vite build && electron-builder --win portable"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "googleapis": "^144.0.0"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.1.0",
+    "@fontsource/space-grotesk": "^5.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "app.neku.laptop",
+    "productName": "Neku",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Neku-portable.exe"
+    }
+  }
+}
