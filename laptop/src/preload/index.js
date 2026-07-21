@@ -14,6 +14,7 @@ const api = {
   saveSprite: (sprite) => ipcRenderer.invoke('sprite:save', sprite),
   revealFile: (filePath) => ipcRenderer.invoke('shell:reveal', filePath),
   checkClientFolder: (name) => ipcRenderer.invoke('client:check', name),
+  listClients: () => ipcRenderer.invoke('clients:list'),
   deliver: (payload) => ipcRenderer.invoke('deliver', payload),
   getHistory: () => ipcRenderer.invoke('history:list'),
   copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),

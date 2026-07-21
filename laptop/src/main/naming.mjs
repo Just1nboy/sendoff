@@ -122,6 +122,33 @@ export function parseProjectNumber(template, folderName) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/* ---------- revisions ----------
+
+   A repeat client is a revision, not a typo, for everyone except the artist Neku
+   was built for. Revisions live in a subfolder of the client folder ("v2", "v3"),
+   which means: no file name can ever collide, the client's shared link is still
+   the one folder and keeps working, and the first delivery is untouched — it
+   stays loose in the client folder exactly as it always was. v1 IS that first
+   delivery, so revision numbering starts at 2. */
+
+export function revisionFolderName(template, number) {
+  return applyTemplate(template, { n: number });
+}
+
+export function parseRevisionNumber(template, folderName) {
+  return parseProjectNumber(template, folderName);
+}
+
+/** The next revision to make inside a client folder, given what is already there. */
+export function nextRevisionNumber(existingFolderNames, template) {
+  let highest = 1; // the client folder itself is v1
+  for (const name of existingFolderNames || []) {
+    const n = parseRevisionNumber(template, name);
+    if (n !== null && n > highest) highest = n;
+  }
+  return highest + 1;
+}
+
 /** Projects count up and never reuse a number, so a deleted "Batch 6" does not
     hand its name to the next one and old links stay unambiguous.
     firstNumber only applies when no project exists yet. */
@@ -137,7 +164,7 @@ export function nextProjectNumber(existingFolderNames, template, firstNumber = 1
 
 /* ---------- presets ---------- */
 
-/* A preset is nothing but four strings. Adding a trade to this list is a data
+/* A preset is nothing but five strings. Adding a trade to this list is a data
    change, which is the whole point of templating the names. */
 export const PRESETS = [
   {
@@ -149,6 +176,7 @@ export const PRESETS = [
       firstProjectNumber: 5,
       stagedTemplate: '{client}_sprite.png',
       attachedTemplate: 'bouncy.gif',
+      revisionTemplate: 'v{n}',
     },
   },
   {
@@ -160,6 +188,7 @@ export const PRESETS = [
       firstProjectNumber: 1,
       stagedTemplate: '{client}_artwork{ext}',
       attachedTemplate: '{client}_final{ext}',
+      revisionTemplate: 'v{n}',
     },
   },
   {
@@ -171,6 +200,7 @@ export const PRESETS = [
       firstProjectNumber: 1,
       stagedTemplate: '{client}_{date}{ext}',
       attachedTemplate: '{client}_{date}_gallery{ext}',
+      revisionTemplate: 'v{n}',
     },
   },
   {
@@ -182,6 +212,7 @@ export const PRESETS = [
       firstProjectNumber: 1,
       stagedTemplate: '{client}_{name}{ext}',
       attachedTemplate: '{client}_source{ext}',
+      revisionTemplate: 'v{n}',
     },
   },
 ];
@@ -219,6 +250,10 @@ export function validateNaming(partial) {
   const errors = {};
   const projectError = validateProjectTemplate(naming.projectTemplate);
   if (projectError) errors.projectTemplate = projectError;
+  // same rule as projects: without {n} the app cannot count revisions
+  if (!String(naming.revisionTemplate ?? '').includes('{n}')) {
+    errors.revisionTemplate = 'Revision folder name must contain {n}, the revision number.';
+  }
   for (const key of ['stagedTemplate', 'attachedTemplate']) {
     try {
       // a realistic set of values, so an all-token template is judged filled in

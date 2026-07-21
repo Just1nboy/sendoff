@@ -7,7 +7,7 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog } from 'electron';
 import { makeBouncyGif } from './test-gif.mjs';
 import { discardStaged, seedStaged } from './drive-mock.js';
-import { projectFolderName, resolveNaming } from './naming.mjs';
+import { projectFolderName, resolveNaming, revisionFolderName } from './naming.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -439,6 +439,85 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   log(`[autopilot] cross-project typo warning: "${warn}"`);
   if (!warn.includes(seededProject)) {
     throw new Error('typo guard did not report the project the existing client is in');
+  }
+
+  /* ---- the same hit read the other way: a revision ----
+     An existing folder is a typo for the artist and a revision for everyone
+     else, so both offers must be on screen, and "add into that folder" must be
+     the one selected until he says otherwise. */
+  const choices = await js(
+    `JSON.stringify(Array.from(document.querySelectorAll('.zone-right .choice-row .btn'))
+       .map((b) => ({ text: b.textContent, on: b.classList.contains('primary') })))`
+  );
+  log(`[autopilot] existing-folder choices: ${choices}`);
+  const parsed = JSON.parse(choices);
+  if (parsed.length !== 2) throw new Error(`expected two choices, saw ${choices}`);
+  if (!parsed[0].on || parsed[1].on) {
+    throw new Error(`"add into that folder" must be the default, saw ${choices}`);
+  }
+  const firstRevision = revisionFolderName(naming.revisionTemplate, 2);
+  if (!parsed[1].text.includes(firstRevision)) {
+    throw new Error(`revision offer should name ${firstRevision}, said "${parsed[1].text}"`);
+  }
+  await shot('8-revision-choice.png');
+
+  // pick the revision, put a file in the slot, and deliver it for real
+  await js(`document.querySelectorAll('.zone-right .choice-row .btn')[1].click()`);
+  await sleep(300);
+
+  seedStaged({ id: 'mock-sprite-rev', name: 'oldclient_v2.png' });
+  await js(`window.__nekuTest.refresh()`);
+  await sleep(900);
+  await js(`window.__nekuTest.pick('mock-sprite-rev')`);
+  await js(`window.__nekuTest.setGif()`);
+  await sleep(700);
+
+  // only once both slots are full does the button carry the delivery's name
+  const cta = await js(
+    `(document.querySelector('.zone-right .btn.primary.big') || {}).textContent || ''`
+  );
+  log(`[autopilot] deliver button once a revision is ready: "${cta}"`);
+  if (!cta.includes(firstRevision)) {
+    throw new Error(`deliver button should name the revision, said "${cta}"`);
+  }
+
+  await js(`window.__nekuTest.deliver()`);
+  let revPhase = '';
+  const revDeadline = Date.now() + 20000;
+  while (Date.now() < revDeadline) {
+    revPhase = await js(`window.__nekuTest.phase()`);
+    if (revPhase === 'done' || revPhase === 'error') break;
+    await sleep(300);
+  }
+  const sealedRev = await js(
+    `(document.querySelector('.sealed-title') || {}).textContent || ''`
+  );
+  const revNotice = await js(
+    `(document.querySelector('.sealed .warnstrip') || {}).textContent || ''`
+  );
+  log(`[autopilot] revision delivery: ${revPhase}, sealed "${sealedRev}", notice "${revNotice}"`);
+  if (revPhase !== 'done') throw new Error(`revision delivery ended as ${revPhase}`);
+  if (!sealedRev.includes(firstRevision)) {
+    throw new Error(`sealed card did not name the revision: "${sealedRev}"`);
+  }
+  if (!revNotice.includes(firstRevision)) {
+    throw new Error(`no notice explaining where the revision went: "${revNotice}"`);
+  }
+  await shot('9-revision-sealed.png');
+
+  /* and the next one after it must be v3, not v2 again: the number comes from
+     what is already in Drive, so a second revision cannot overwrite the first */
+  await js(`document.querySelector('.sealed .btn.ghost').click()`);
+  await sleep(500);
+  await js(`window.__nekuTest.setName('OldClientFromMarch')`);
+  await sleep(1500);
+  const secondOffer = await js(
+    `(document.querySelectorAll('.zone-right .choice-row .btn')[1] || {}).textContent || ''`
+  );
+  const secondRevision = revisionFolderName(naming.revisionTemplate, 3);
+  log(`[autopilot] offer after one revision: "${secondOffer}"`);
+  if (!secondOffer.includes(secondRevision)) {
+    throw new Error(`second revision should be ${secondRevision}, offered "${secondOffer}"`);
   }
 
   // ---- switching back to an earlier project ----

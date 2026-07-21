@@ -8,10 +8,12 @@ import {
   applyTemplate,
   cleanName,
   nextProjectNumber,
+  nextRevisionNumber,
   parseProjectNumber,
   presetById,
   projectFolderName,
   resolveNaming,
+  revisionFolderName,
   templateVars,
 } from './naming.mjs';
 
@@ -55,7 +57,7 @@ const state = {
           createdTime: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
         },
       ],
-  clientFolders: EMPTY ? [] : [{ name: 'OldClientFromMarch', projectName: SEEDED_NAME }],
+  clientFolders: EMPTY ? [] : [{ name: 'OldClientFromMarch', projectName: SEEDED_NAME, revisions: [] }],
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -146,12 +148,18 @@ export async function getFileBytes() {
   }
 }
 
-export async function checkClientFolder(_drive, _rootName, clientName) {
+export async function checkClientFolder(_drive, _rootName, clientName, namingIn) {
   await sleep(200);
+  const naming = resolveNaming(namingIn);
   const name = cleanName(clientName);
   // like the real one, this looks across every project, not just the current one
   const hit = state.clientFolders.find((f) => f.name.toLowerCase() === name.toLowerCase());
-  return { exists: Boolean(hit), projectName: hit ? hit.projectName : null };
+  if (!hit) return { exists: false, projectName: null, nextRevision: null };
+  return {
+    exists: true,
+    projectName: hit.projectName,
+    nextRevision: nextRevisionNumber(hit.revisions || [], naming.revisionTemplate),
+  };
 }
 
 export async function deliver(_drive, opts, onStep) {
@@ -170,14 +178,29 @@ export async function deliver(_drive, opts, onStep) {
   if (opts.sprite.kind === 'drive') {
     state.staged = state.staged.filter((f) => f.id !== opts.sprite.id);
   }
-  const existed = state.clientFolders.some(
-    (f) => f.name.toLowerCase() === clientName.toLowerCase() && f.projectName === projectName
+  const revisionName = opts.revision
+    ? revisionFolderName(naming.revisionTemplate, opts.revision)
+    : null;
+
+  const already = state.clientFolders.find(
+    (f) => f.name.toLowerCase() === clientName.toLowerCase()
   );
-  if (!existed) state.clientFolders.push({ name: clientName, projectName });
+  const existed = Boolean(
+    already && state.clientFolders.some(
+      (f) => f.name.toLowerCase() === clientName.toLowerCase() && f.projectName === projectName
+    )
+  );
+  if (revisionName && already) {
+    // a revision lands inside the folder that already exists, wherever it is
+    already.revisions = [...(already.revisions || []), revisionName];
+  } else if (!existed) {
+    state.clientFolders.push({ name: clientName, projectName, revisions: [] });
+  }
   return {
     link: `https://drive.google.com/drive/folders/mock-${encodeURIComponent(clientName)}`,
     folderName: clientName,
     projectName,
+    revisionName,
     spriteName: applyTemplate(
       naming.stagedTemplate,
       templateVars({ ...base, fileName: opts.sprite.name })
@@ -186,7 +209,9 @@ export async function deliver(_drive, opts, onStep) {
       naming.attachedTemplate,
       templateVars({ ...base, fileName: opts.gifName })
     ),
-    notices: existed
+    notices: revisionName
+      ? [`Delivered as ${revisionName} inside the existing "${clientName}" folder.`]
+      : existed
       ? [`Folder "${clientName}" already existed in ${projectName}. Files were added into it.`]
       : [],
   };

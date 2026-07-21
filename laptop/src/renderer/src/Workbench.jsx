@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { applyTemplate, cleanName, resolveNaming, templateVars } from '../../main/naming.mjs';
+import {
+  applyTemplate,
+  cleanName,
+  resolveNaming,
+  revisionFolderName,
+  templateVars,
+} from '../../main/naming.mjs';
 import LightTable, { PIXEL_ART_MAX } from './LightTable.jsx';
 import PackingSlip from './PackingSlip.jsx';
 
@@ -77,7 +83,9 @@ export default function Workbench({ state }) {
   });
   const [selection, setSelection] = useState(null); // {kind:'drive',id,name}|{kind:'local',file,name}
   const [clientName, setClientName] = useState('');
-  const [folderExists, setFolderExists] = useState(null); // null | { projectName }
+  const [folderExists, setFolderExists] = useState(null); // null | { projectName, nextRevision }
+  const [asRevision, setAsRevision] = useState(false); // deliver into v2/v3 instead
+  const [clients, setClients] = useState([]); // everyone delivered to before
   const [gif, setGif] = useState(null); // { file, url }
   const [foundGif, setFoundGif] = useState(null); // gif Neku saw land in Downloads
   const [delivery, setDelivery] = useState(null); // null|{phase:'run',step}|{phase:'done',result}|{phase:'error',...}
@@ -147,20 +155,36 @@ export default function Workbench({ state }) {
     };
   }, []);
 
-  /* ---------- folder-exists check (typo guard: repeat clients don't happen) ----------
-     Looks across every project, not just this one: a name reused from an old project
-     is the likeliest kind of typo. */
+  /* ---------- an existing client folder ----------
+     Looks across every project, not just this one. The hit means one of two
+     things and the app cannot tell which, so it does not guess: for the artist
+     Neku was built for it is a typo (he has no repeat clients), and for everyone
+     else it is a revision. Both are offered; delivering into the existing folder
+     stays the default, so his flow is unchanged unless he picks otherwise. */
 
   useEffect(() => {
     setFolderExists(null);
+    setAsRevision(false);
     const name = clientName.trim();
     if (!name) return undefined;
     const timer = setTimeout(async () => {
       const res = await window.neku.checkClientFolder(name);
-      if (res.ok && res.data.exists) setFolderExists({ projectName: res.data.projectName });
+      if (res.ok && res.data.exists) {
+        setFolderExists({
+          projectName: res.data.projectName,
+          nextRevision: res.data.nextRevision,
+        });
+      }
     }, 600);
     return () => clearTimeout(timer);
   }, [clientName]);
+
+  // names he has delivered to before, so he can pick instead of retyping
+  useEffect(() => {
+    window.neku.listClients().then((res) => {
+      if (res.ok) setClients(res.data);
+    });
+  }, [delivery]);
 
   /* ---------- gif + local sprite intake ---------- */
 
@@ -310,6 +334,9 @@ export default function Workbench({ state }) {
         thumb: await makeThumb(await spriteBlob(selection, previewCache)),
         gifBytes: new Uint8Array(await gif.file.arrayBuffer()),
         gifName: gif.file.name,
+        /* Fixed here rather than resolved during the upload, so a Retry after a
+           partial failure targets the same revision folder it already made. */
+        revision: asRevision && folderExists ? folderExists.nextRevision : null,
         sprite:
           selection.kind === 'drive'
             ? { kind: 'drive', id: selection.id, name: selection.name }
@@ -329,7 +356,7 @@ export default function Workbench({ state }) {
     } finally {
       unsub();
     }
-  }, [selection, gif, clientName, staging.stagingId, refreshStaging]);
+  }, [selection, gif, clientName, staging.stagingId, refreshStaging, asRevision, folderExists]);
 
   // "next commission" stays inside the current project: that is the whole point of
   // projecting, one pick at the start and then straight through the queue
@@ -337,6 +364,7 @@ export default function Workbench({ state }) {
     setSelection(null);
     setClientName('');
     setFolderExists(null);
+    setAsRevision(false);
     setGif((old) => {
       if (old) URL.revokeObjectURL(old.url);
       return null;
@@ -373,6 +401,11 @@ export default function Workbench({ state }) {
       },
       phase: () => (deliveryRef.current ? deliveryRef.current.phase : 'idle'),
       refresh: () => refreshStaging(true),
+      pick: (id) => {
+        const file = staging.files.find((f) => f.id === id);
+        if (file) setSelection({ kind: 'drive', id: file.id, name: file.name });
+        return Boolean(file);
+      },
       foundGif: () => (foundGif ? foundGif.name : ''),
       useFoundGif: () => useFoundGif(foundGif),
       gifName: () => (gif ? gif.file.name : ''),
@@ -421,6 +454,14 @@ export default function Workbench({ state }) {
         clientName={clientName}
         onClientName={setClientName}
         folderExists={folderExists}
+        asRevision={asRevision}
+        onAsRevision={setAsRevision}
+        revisionName={
+          folderExists && folderExists.nextRevision
+            ? revisionFolderName(naming.revisionTemplate, folderExists.nextRevision)
+            : null
+        }
+        clients={clients}
         namePreview={namePreview}
         rootName={state.settings.rootName}
         projectName={state.project.name}

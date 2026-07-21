@@ -14,9 +14,11 @@ import {
   applyTemplate,
   cleanName,
   nextProjectNumber,
+  nextRevisionNumber,
   parseProjectNumber,
   projectFolderName,
   resolveNaming,
+  revisionFolderName,
   templateVars,
 } from './naming.mjs';
 
@@ -230,14 +232,22 @@ export async function getFileBytes(drive, fileId) {
   return Buffer.from(res.data);
 }
 
-/** Has this client been delivered before, in ANY project? (Never expected, since
-    there are no repeat clients, so the UI surfaces a hit as a possible typo.)
-    The root itself is searched too, for folders delivered before projects existed. */
+/** Has this client been delivered before, in ANY project? Two things want the
+    answer: the typo guard (a name reused from an old project is the likeliest
+    kind of typo) and the revision offer (for everyone who does have repeat
+    clients, a hit means "this is v2"). The root itself is searched too, for
+    folders delivered before projects existed.
+
+    Returns nextRevision so the CALLER can fix the number before delivering.
+    Resolving it inside deliver would make a retry after a partial failure
+    create v3 next to the v2 it had already made. */
 export async function checkClientFolder(drive, rootName, clientName, namingIn) {
+  const naming = resolveNaming(namingIn);
+  const miss = { exists: false, projectName: null, nextRevision: null };
   const root = await findFolder(drive, rootName);
-  if (!root) return { exists: false, projectName: null };
+  if (!root) return miss;
   const name = cleanName(clientName);
-  const projects = await listProjectFolders(drive, root.id, resolveNaming(namingIn));
+  const projects = await listProjectFolders(drive, root.id, naming);
   const byId = new Map(projects.map((b) => [b.id, b.name]));
 
   for (const chunk of chunked([root.id, ...projects.map((b) => b.id)], PARENT_CHUNK)) {
@@ -251,10 +261,22 @@ export async function checkClientFolder(drive, rootName, clientName, namingIn) {
     const hit = (res.data.files || [])[0];
     if (hit) {
       const parent = (hit.parents || []).find((p) => byId.has(p));
-      return { exists: true, projectName: parent ? byId.get(parent) : null };
+      const subs = await drive.files.list({
+        q: `'${hit.id}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`,
+        fields: 'files(name)',
+        pageSize: 200,
+      });
+      return {
+        exists: true,
+        projectName: parent ? byId.get(parent) : null,
+        nextRevision: nextRevisionNumber(
+          (subs.data.files || []).map((f) => f.name),
+          naming.revisionTemplate
+        ),
+      };
     }
   }
-  return { exists: false, projectName: null };
+  return miss;
 }
 
 /**
@@ -272,6 +294,8 @@ export async function checkClientFolder(drive, rootName, clientName, namingIn) {
  *   clientName,
  *   gifBytes: Buffer,
  *   gifName,                         // what he dragged in, for {name}/{ext}
+ *   revision,                        // 2, 3, ... to deliver into a revision
+ *                                    // subfolder; null/absent for a first delivery
  * }
  * onStep(step) fires as each phase starts.
  */
@@ -298,14 +322,27 @@ export async function deliver(drive, opts, onStep) {
   const root = await ensureFolder(drive, opts.rootName);
   const project = await ensureFolder(drive, opts.projectName, root.id);
   const clientFolder = await ensureFolder(drive, clientName, project.id);
-  if (clientFolder.existed) {
+
+  /* Files go into a revision subfolder when one was asked for, but the CLIENT
+     folder is still what gets shared, so the link he already sent this client
+     keeps working and simply gains the new revision. */
+  const revisionName = opts.revision
+    ? revisionFolderName(naming.revisionTemplate, opts.revision)
+    : null;
+  const destFolder = revisionName
+    ? await ensureFolder(drive, revisionName, clientFolder.id)
+    : clientFolder;
+
+  if (revisionName) {
+    notices.push(`Delivered as ${revisionName} inside the existing "${clientName}" folder.`);
+  } else if (clientFolder.existed) {
     notices.push(
       `Folder "${clientName}" already existed in ${project.name}. Files were added into it.`
     );
   }
 
   onStep('sprite');
-  const existingSprite = await findChildByName(drive, clientFolder.id, targetSprite);
+  const existingSprite = await findChildByName(drive, destFolder.id, targetSprite);
   if (opts.sprite.kind === 'drive') {
     if (existingSprite && existingSprite.id === opts.sprite.id) {
       // retry of a partially-completed run: the move already happened
@@ -313,7 +350,7 @@ export async function deliver(drive, opts, onStep) {
       try {
         await drive.files.update({
           fileId: opts.sprite.id,
-          addParents: clientFolder.id,
+          addParents: destFolder.id,
           removeParents: opts.stagingId,
           requestBody: { name: targetSprite },
           fields: 'id,parents',
@@ -334,7 +371,7 @@ export async function deliver(drive, opts, onStep) {
       await drive.files.update({ fileId: existingSprite.id, media, fields: 'id' });
     } else {
       await drive.files.create({
-        requestBody: { name: targetSprite, parents: [clientFolder.id] },
+        requestBody: { name: targetSprite, parents: [destFolder.id] },
         media,
         fields: 'id',
       });
@@ -343,13 +380,13 @@ export async function deliver(drive, opts, onStep) {
 
   onStep('gif');
   const gifMedia = { mimeType: mimeForName(targetGif), body: Readable.from(opts.gifBytes) };
-  const existingGif = await findChildByName(drive, clientFolder.id, targetGif);
+  const existingGif = await findChildByName(drive, destFolder.id, targetGif);
   if (existingGif) {
     await drive.files.update({ fileId: existingGif.id, media: gifMedia, fields: 'id' });
     notices.push(`${targetGif} already existed. Its contents were replaced.`);
   } else {
     await drive.files.create({
-      requestBody: { name: targetGif, parents: [clientFolder.id] },
+      requestBody: { name: targetGif, parents: [destFolder.id] },
       media: gifMedia,
       fields: 'id',
     });
@@ -373,6 +410,7 @@ export async function deliver(drive, opts, onStep) {
     link: meta.data.webViewLink,
     folderName: meta.data.name,
     projectName: project.name,
+    revisionName,
     spriteName: targetSprite,
     gifName: targetGif,
     notices,

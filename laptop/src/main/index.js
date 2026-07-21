@@ -444,6 +444,10 @@ handle('deliver', async (event, payload) => {
       gifBytes: Buffer.from(payload.gifBytes),
       // the dragged file's own name, so {name} and {ext} have something to read
       gifName: payload.gifName || '',
+      /* Which revision, decided before the first attempt and passed in, so a
+         retry after a partial failure reuses the same number instead of
+         stacking a v3 next to the v2 it already made. */
+      revision: Number.isInteger(payload.revision) && payload.revision > 1 ? payload.revision : null,
     },
     (step) => event.sender.send('deliver:step', step)
   );
@@ -456,6 +460,7 @@ handle('deliver', async (event, payload) => {
   history.unshift({
     clientName: result.folderName,
     projectName: result.projectName,
+    revisionName: result.revisionName || null,
     link: result.link,
     files: `${result.spriteName} + ${result.gifName}`,
     thumb,
@@ -468,6 +473,35 @@ handle('deliver', async (event, payload) => {
     history.slice(0, 500).map((en, i) => (i < HISTORY_THUMBS ? en : { ...en, thumb: null }))
   );
   return result;
+});
+
+/* Everyone this Drive has ever been delivered to, newest first, derived from the
+   delivery history rather than from Drive: it is already on disk, it is already
+   the record of what actually shipped, and it costs no API call while he types.
+
+   Point of it: stop retyping a name he has used before, and let a repeat client
+   be recognised as a repeat client instead of read as a typo. */
+handle('clients:list', () => {
+  const byName = new Map();
+  for (const en of store.get('history') || []) {
+    const name = String(en.clientName || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const seen = byName.get(key);
+    if (seen) {
+      seen.deliveries += 1;
+      continue;
+    }
+    // history is newest first, so the first sighting is the most recent delivery
+    byName.set(key, {
+      name,
+      deliveries: 1,
+      lastDeliveredAt: en.deliveredAt || null,
+      lastProjectName: en.projectName || en.batchName || null,
+      lastLink: en.link || null,
+    });
+  }
+  return [...byName.values()];
 });
 
 /* Deliveries recorded before the batch/project rename carry batchName. They are

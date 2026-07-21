@@ -7,10 +7,13 @@ import {
   cleanName,
   matchPreset,
   nextProjectNumber,
+  nextRevisionNumber,
   parseProjectNumber,
+  parseRevisionNumber,
   presetById,
   projectFolderName,
   resolveNaming,
+  revisionFolderName,
   splitFileName,
   templateVars,
   today,
@@ -145,6 +148,37 @@ test('a project template must contain the number token', () => {
 });
 
 /* ---------- presets ---------- */
+
+/* ---------- revisions ---------- */
+
+test('a revision folder is its template with the number filled in', () => {
+  assert.equal(revisionFolderName('v{n}', 2), 'v2');
+  assert.equal(revisionFolderName('revision {n}', 3), 'revision 3');
+});
+
+test('the first revision is 2, because the client folder itself is v1', () => {
+  assert.equal(nextRevisionNumber([], 'v{n}'), 2);
+  assert.equal(nextRevisionNumber(['notes', 'refs'], 'v{n}'), 2);
+});
+
+test('revisions count up from the highest that exists', () => {
+  assert.equal(nextRevisionNumber(['v2'], 'v{n}'), 3);
+  assert.equal(nextRevisionNumber(['v3', 'v2'], 'v{n}'), 4);
+  // a deleted v3 does not hand its number back, same rule as projects
+  assert.equal(nextRevisionNumber(['v2', 'v4'], 'v{n}'), 5);
+});
+
+test('folders in the client folder that are not revisions are ignored', () => {
+  assert.equal(parseRevisionNumber('v{n}', 'v2'), 2);
+  for (const name of ['refs', 'V2', 'v', 'v0', 'v2 old']) {
+    assert.equal(parseRevisionNumber('v{n}', name), null, name);
+  }
+});
+
+test('a revision template must contain the number token', () => {
+  assert.ok(validateNaming({ ...DEFAULT_NAMING, revisionTemplate: 'final' }).revisionTemplate);
+  assert.equal(validateNaming({ ...DEFAULT_NAMING, revisionTemplate: 'v{n}' }), null);
+});
 
 test('the default naming is the setup Neku shipped with', () => {
   // an existing install must not change behaviour just because templates exist

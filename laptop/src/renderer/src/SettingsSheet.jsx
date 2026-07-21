@@ -145,6 +145,22 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
         </div>
 
         <div className="field">
+          <label htmlFor="s-revision">Name for a revision folder</label>
+          <input
+            id="s-revision"
+            value={naming.revisionTemplate}
+            spellCheck={false}
+            onChange={setName('revisionTemplate')}
+          />
+          {errors.revisionTemplate && <div className="errbox">{errors.revisionTemplate}</div>}
+          <div className="note">
+            When you deliver to a client you have delivered to before, the new files can go in
+            a subfolder of their existing folder. The link you already sent them keeps working
+            and gains the new version. The first delivery is v1, so numbering starts at v2.
+          </div>
+        </div>
+
+        <div className="field">
           <label>You can use</label>
           <div className="note token-list">
             {TOKENS.map((t) => (

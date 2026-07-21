@@ -607,6 +607,10 @@ body {
 
 .preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* the two ways to read an existing client folder: a typo, or a revision */
+.choice-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
+.warnstrip .hint-sub { max-width: none; }
+
 .token-list { display: flex; flex-direction: column; gap: 3px; }
 .token code {
   color: var(--accent-text);

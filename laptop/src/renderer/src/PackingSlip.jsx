@@ -20,6 +20,8 @@ const extOf = (name) => {
 
 const PREVIEWABLE = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
 
+const deliveryCount = (n) => (n === 1 ? 'once' : `${n} times`);
+
 function fmtSize(n) {
   if (!n) return '';
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
@@ -30,6 +32,10 @@ export default function PackingSlip({
   clientName,
   onClientName,
   folderExists,
+  asRevision,
+  onAsRevision,
+  revisionName,
+  clients,
   namePreview,
   projectName,
   attachedName,
@@ -51,6 +57,10 @@ export default function PackingSlip({
   const gifInput = useRef(null);
   const [copied, setCopied] = useState(false);
   const steps = stepsFor(stagedName, attachedName);
+  const typed = clientName.trim().toLowerCase();
+  const knownClient = typed
+    ? (clients || []).find((c) => c.name.toLowerCase() === typed)
+    : null;
   const previewable = Boolean(gif) && PREVIEWABLE.includes(extOf(gif.file.name));
   const running = delivery && delivery.phase === 'run';
   // the corner notice is the main offer; this is the quiet second chance for
@@ -74,8 +84,16 @@ export default function PackingSlip({
         </div>
         <div className="sealed">
           <div className="stamp-ring">&#10003;</div>
-          <div className="sealed-title">Packed for {r.folderName}</div>
-          {r.projectName && <div className="sealed-project">filed in {r.projectName}</div>}
+          <div className="sealed-title">
+            Packed for {r.folderName}
+            {r.revisionName ? ` · ${r.revisionName}` : ''}
+          </div>
+          {r.projectName && (
+            <div className="sealed-project">
+              filed in {r.projectName}
+              {r.revisionName ? `/${r.folderName}/${r.revisionName}` : ''}
+            </div>
+          )}
           <div className="sealed-files">
             {r.spriteName} + {r.gifName}
           </div>
@@ -119,14 +137,59 @@ export default function PackingSlip({
           spellCheck={false}
           placeholder="the client this goes to"
           disabled={running}
+          list="known-clients"
+          autoComplete="off"
           onChange={(e) => onClientName(e.target.value)}
         />
+        {/* names delivered to before, so a repeat client is picked, not retyped
+            and misspelled */}
+        <datalist id="known-clients">
+          {(clients || []).map((c) => (
+            <option key={c.name} value={c.name} />
+          ))}
+        </datalist>
+        {knownClient && !folderExists && (
+          <div className="note">
+            Delivered to before: {deliveryCount(knownClient.deliveries)}
+            {knownClient.lastProjectName ? `, last in ${knownClient.lastProjectName}` : ''}.
+          </div>
+        )}
         {namePreview && <div className="note mono">{namePreview}</div>}
+
+        {/* The hit is either a typo or a revision and the app cannot know which,
+            so it says what it found and offers both. Adding into the folder stays
+            the default: it is what Neku has always done. */}
         {folderExists && (
           <div className="warnstrip">
-            A folder with this name already exists
-            {folderExists.projectName ? ` in ${folderExists.projectName}` : ''}. Check the spelling
-            if this is meant to be someone new. Delivering this one into {projectName} anyway.
+            <div>
+              A folder with this name already exists
+              {folderExists.projectName ? ` in ${folderExists.projectName}` : ''}.
+            </div>
+            <div className="choice-row">
+              <button
+                type="button"
+                className={`btn slim${asRevision ? '' : ' primary'}`}
+                disabled={running}
+                onClick={() => onAsRevision(false)}
+              >
+                Add into that folder
+              </button>
+              {revisionName && (
+                <button
+                  type="button"
+                  className={`btn slim${asRevision ? ' primary' : ''}`}
+                  disabled={running}
+                  onClick={() => onAsRevision(true)}
+                >
+                  Deliver as {revisionName}
+                </button>
+              )}
+            </div>
+            <div className="hint-sub">
+              {asRevision
+                ? `Goes into a ${revisionName} folder inside it. The link you already sent this client keeps working and gains the new files.`
+                : `Check the spelling if this is meant to be someone new. Delivering into ${projectName} anyway.`}
+            </div>
           </div>
         )}
       </div>
@@ -189,7 +252,9 @@ export default function PackingSlip({
       {!running && !failed && (
         <button className="btn primary big" onClick={onDeliver} disabled={!canDeliver}>
           {canDeliver
-            ? 'Deliver to Drive'
+            ? asRevision && revisionName
+              ? `Deliver ${revisionName} to Drive`
+              : 'Deliver to Drive'
             : !selection
               ? 'Waiting for the artwork…'
               : !clientName.trim()
