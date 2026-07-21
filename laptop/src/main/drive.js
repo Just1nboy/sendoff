@@ -91,7 +91,7 @@ function chunked(items, size) {
 const parentsClause = (ids) => '(' + ids.map((id) => `'${id}' in parents`).join(' or ') + ')';
 
 /** Direct subfolders of the root matching the project template, newest number first. */
-async function listBatchFolders(drive, rootId, naming) {
+async function listProjectFolders(drive, rootId, naming) {
   const res = await drive.files.list({
     q: `'${rootId}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`,
     fields: 'files(id,name,createdTime)',
@@ -108,10 +108,10 @@ async function listBatchFolders(drive, rootId, naming) {
     .sort((a, b) => b.number - a.number);
 }
 
-/** How many client folders each batch holds, for the batch menu. */
-async function countClients(drive, batchIds) {
+/** How many client folders each project holds, for the project menu. */
+async function countClients(drive, projectIds) {
   const counts = new Map();
-  for (const chunk of chunked(batchIds, PARENT_CHUNK)) {
+  for (const chunk of chunked(projectIds, PARENT_CHUNK)) {
     const res = await drive.files.list({
       q: `${parentsClause(chunk)} and mimeType='${FOLDER_MIME}' and trashed=false`,
       fields: 'files(id,parents)',
@@ -126,34 +126,34 @@ async function countClients(drive, batchIds) {
   return counts;
 }
 
-/** Every project under the root, for the "which batch?" menu. */
-export async function listBatches(drive, rootName, namingIn) {
+/** Every project under the root, for the "which project?" menu. */
+export async function listProjects(drive, rootName, namingIn) {
   const naming = resolveNaming(namingIn);
   const root = await ensureFolder(drive, rootName);
-  const batches = await listBatchFolders(drive, root.id, naming);
-  const counts = await countClients(drive, batches.map((b) => b.id));
+  const projects = await listProjectFolders(drive, root.id, naming);
+  const counts = await countClients(drive, projects.map((b) => b.id));
   return {
     rootId: root.id,
     nextNumber: nextProjectNumber(
-      batches.map((b) => b.name),
+      projects.map((b) => b.name),
       naming.projectTemplate,
       naming.firstProjectNumber
     ),
     nextName: projectFolderName(
       naming.projectTemplate,
-      nextProjectNumber(batches.map((b) => b.name), naming.projectTemplate, naming.firstProjectNumber)
+      nextProjectNumber(projects.map((b) => b.name), naming.projectTemplate, naming.firstProjectNumber)
     ),
-    batches: batches.map((b) => ({ ...b, clients: counts.get(b.id) || 0 })),
+    projects: projects.map((b) => ({ ...b, clients: counts.get(b.id) || 0 })),
   };
 }
 
 /** Start the next project. The number always counts up from the highest that exists. */
-export async function createBatch(drive, rootName, namingIn) {
+export async function createProject(drive, rootName, namingIn) {
   const naming = resolveNaming(namingIn);
   const root = await ensureFolder(drive, rootName);
-  const batches = await listBatchFolders(drive, root.id, naming);
+  const projects = await listProjectFolders(drive, root.id, naming);
   const number = nextProjectNumber(
-    batches.map((b) => b.name),
+    projects.map((b) => b.name),
     naming.projectTemplate,
     naming.firstProjectNumber
   );
@@ -230,17 +230,17 @@ export async function getFileBytes(drive, fileId) {
   return Buffer.from(res.data);
 }
 
-/** Has this client been delivered before, in ANY batch? (Never expected, since
+/** Has this client been delivered before, in ANY project? (Never expected, since
     there are no repeat clients, so the UI surfaces a hit as a possible typo.)
-    The root itself is searched too, for folders delivered before batches existed. */
+    The root itself is searched too, for folders delivered before projects existed. */
 export async function checkClientFolder(drive, rootName, clientName, namingIn) {
   const root = await findFolder(drive, rootName);
-  if (!root) return { exists: false, batchName: null };
+  if (!root) return { exists: false, projectName: null };
   const name = cleanName(clientName);
-  const batches = await listBatchFolders(drive, root.id, resolveNaming(namingIn));
-  const byId = new Map(batches.map((b) => [b.id, b.name]));
+  const projects = await listProjectFolders(drive, root.id, resolveNaming(namingIn));
+  const byId = new Map(projects.map((b) => [b.id, b.name]));
 
-  for (const chunk of chunked([root.id, ...batches.map((b) => b.id)], PARENT_CHUNK)) {
+  for (const chunk of chunked([root.id, ...projects.map((b) => b.id)], PARENT_CHUNK)) {
     const res = await drive.files.list({
       q:
         `name='${escQ(name)}' and mimeType='${FOLDER_MIME}' and trashed=false ` +
@@ -251,10 +251,10 @@ export async function checkClientFolder(drive, rootName, clientName, namingIn) {
     const hit = (res.data.files || [])[0];
     if (hit) {
       const parent = (hit.parents || []).find((p) => byId.has(p));
-      return { exists: true, batchName: parent ? byId.get(parent) : null };
+      return { exists: true, projectName: parent ? byId.get(parent) : null };
     }
   }
-  return { exists: false, batchName: null };
+  return { exists: false, projectName: null };
 }
 
 /**
@@ -264,9 +264,9 @@ export async function checkClientFolder(drive, rootName, clientName, namingIn) {
  * opts = {
  *   rootName, stagingName,
  *   naming,                          // the templates every name here comes from
- *   batchName,                       // "Batch 3": resolved by name, so a project
+ *   projectName,                       // "Project 3": resolved by name, so a project
  *                                    // deleted in Drive is simply recreated
- *   batchNumber,
+ *   projectNumber,
  *   stagingId,                       // where the staged file currently lives
  *   sprite: { kind:'drive', id, name } | { kind:'local', bytes:Buffer, name },
  *   clientName,
@@ -280,8 +280,8 @@ export async function deliver(drive, opts, onStep) {
   const clientName = cleanName(opts.clientName);
   const base = {
     clientName,
-    projectName: opts.batchName,
-    projectNumber: opts.batchNumber ?? parseProjectNumber(naming.projectTemplate, opts.batchName),
+    projectName: opts.projectName,
+    projectNumber: opts.projectNumber ?? parseProjectNumber(naming.projectTemplate, opts.projectName),
   };
   // each file's own name feeds {name}/{ext}, so the two templates can differ
   const targetSprite = applyTemplate(
@@ -296,11 +296,11 @@ export async function deliver(drive, opts, onStep) {
 
   onStep('folders');
   const root = await ensureFolder(drive, opts.rootName);
-  const batch = await ensureFolder(drive, opts.batchName, root.id);
-  const clientFolder = await ensureFolder(drive, clientName, batch.id);
+  const project = await ensureFolder(drive, opts.projectName, root.id);
+  const clientFolder = await ensureFolder(drive, clientName, project.id);
   if (clientFolder.existed) {
     notices.push(
-      `Folder "${clientName}" already existed in ${batch.name}. Files were added into it.`
+      `Folder "${clientName}" already existed in ${project.name}. Files were added into it.`
     );
   }
 
@@ -355,8 +355,8 @@ export async function deliver(drive, opts, onStep) {
     });
   }
 
-  // the CLIENT folder is shared, never the batch folder: one client's link must
-  // not expose the rest of the batch
+  // the CLIENT folder is shared, never the project folder: one client's link must
+  // not expose the rest of the project
   onStep('share');
   await drive.permissions.create({
     fileId: clientFolder.id,
@@ -372,7 +372,7 @@ export async function deliver(drive, opts, onStep) {
   return {
     link: meta.data.webViewLink,
     folderName: meta.data.name,
-    batchName: batch.name,
+    projectName: project.name,
     spriteName: targetSprite,
     gifName: targetGif,
     notices,

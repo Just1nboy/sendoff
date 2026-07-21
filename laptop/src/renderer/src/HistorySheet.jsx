@@ -20,7 +20,7 @@ export default function HistorySheet({ onClose }) {
     window.neku.getHistory().then((res) => setEntries(res.ok ? res.data : []));
   }, []);
 
-  /* Client and batch are the two things he'd remember about an old delivery.
+  /* Client and project are the two things he'd remember about an old delivery.
      The file line is just the client name again plus bouncy.gif, so matching it
      would make every single card a hit for "bouncy". */
   const shown = useMemo(() => {
@@ -30,7 +30,7 @@ export default function HistorySheet({ onClose }) {
     return entries.filter(
       (en) =>
         en.clientName.toLowerCase().includes(q) ||
-        (en.batchName || '').toLowerCase().includes(q)
+        (en.projectName || '').toLowerCase().includes(q)
     );
   }, [entries, query]);
 
@@ -60,7 +60,7 @@ export default function HistorySheet({ onClose }) {
               autoFocus
               value={query}
               spellCheck={false}
-              placeholder="Search by client or batch"
+              placeholder="Search by client or project"
               onChange={(e) => setQuery(e.target.value)}
             />
             <span className="history-count">
@@ -81,7 +81,7 @@ export default function HistorySheet({ onClose }) {
               <div key={`${en.deliveredAt}-${idx}`} className="history-card">
                 <div className="history-thumb checker">
                   {en.thumb ? (
-                    <img src={en.thumb} alt={`${en.clientName} sprite`} />
+                    <img src={en.thumb} alt={`${en.clientName} artwork`} />
                   ) : (
                     <span className="history-nothumb">no preview</span>
                   )}
@@ -89,7 +89,7 @@ export default function HistorySheet({ onClose }) {
                 <div className="history-main">
                   <span className="fname">{en.clientName}</span>
                   <span className="fsize">
-                    {en.batchName ? `${en.batchName} · ` : ''}
+                    {en.projectName ? `${en.projectName} · ` : ''}
                     {fmtWhen(en.deliveredAt)}
                   </span>
                   <span className="fsize mono">{en.files}</span>

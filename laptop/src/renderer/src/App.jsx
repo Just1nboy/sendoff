@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Setup from './Setup.jsx';
 import Login from './Login.jsx';
-import BatchMenu from './BatchMenu.jsx';
+import ProjectMenu from './ProjectMenu.jsx';
 import Workbench from './Workbench.jsx';
 import SettingsSheet from './SettingsSheet.jsx';
 import HistorySheet from './HistorySheet.jsx';
@@ -38,8 +38,8 @@ export default function App() {
     body = <Setup onSaved={refreshState} />;
   } else if (!state.loggedIn) {
     body = <Login settings={state.settings} onLoggedIn={refreshState} />;
-  } else if (!state.batch) {
-    body = <BatchMenu state={state} onPicked={refreshState} />;
+  } else if (!state.project) {
+    body = <ProjectMenu state={state} onPicked={refreshState} />;
   } else {
     body = <Workbench state={state} onAuthLost={refreshState} />;
   }
@@ -50,21 +50,21 @@ export default function App() {
         <div>
           <span className="mark">NEKU</span>
           <span className="route">
-            {state.mock ? 'mock drive: nothing real is uploaded' : 'drive · commission runs'}
+            {state.mock ? 'mock drive: nothing real is uploaded' : 'drive · live deliveries'}
           </span>
         </div>
         <div className="spacer" />
-        {state.batch && (
+        {state.project && (
           <button
-            className="btn slim batch-chip"
-            title="Switch batch"
+            className="btn slim project-chip"
+            title="Switch project"
             onClick={async () => {
-              await window.neku.leaveBatch();
+              await window.neku.leaveProject();
               refreshState();
             }}
           >
-            {state.batch.name}
-            <span className="batch-chip-caret">&#9662;</span>
+            {state.project.name}
+            <span className="project-chip-caret">&#9662;</span>
           </button>
         )}
         <button className="btn slim ghost" onClick={() => setHistoryOpen(true)}>

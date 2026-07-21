@@ -210,11 +210,12 @@ body {
 .discard-confirm .btn-row { justify-content: flex-start; }
 .discard-ask { font-weight: 700; }
 
-.table img.sprite {
+.table img.artwork {
   max-width: 100%;
   max-height: min(44vh, 380px);
-  image-rendering: pixelated;
 }
+/* only small images; a photo scaled with nearest-neighbour looks broken */
+.table img.artwork.pixelated { image-rendering: pixelated; }
 
 .empty-hint { color: var(--ink-faint); text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .hint-sub { font-size: 12.5px; color: var(--ink-faint); max-width: 34ch; }
@@ -523,9 +524,9 @@ body {
 
 .login-wait { display: flex; align-items: center; gap: 12px; justify-content: center; color: var(--ink-dim); }
 
-/* ---------- batch menu ---------- */
+/* ---------- project menu ---------- */
 
-.batch-list {
+.project-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -533,7 +534,7 @@ body {
   overflow-y: auto;
 }
 
-.batch-row {
+.project-row {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -547,15 +548,15 @@ body {
   font: inherit;
   cursor: pointer;
 }
-.batch-row:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
-.batch-row:disabled { opacity: 0.5; cursor: default; }
-.batch-row .fname { flex: none; font-weight: 700; }
-.batch-when { margin-left: auto; }
+.project-row:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
+.project-row:disabled { opacity: 0.5; cursor: default; }
+.project-row .fname { flex: none; font-weight: 700; }
+.project-when { margin-left: auto; }
 
-.batch-chip { color: var(--accent-text); border-color: var(--accent); }
-.batch-chip-caret { margin-left: 6px; font-size: 9px; opacity: 0.8; }
+.project-chip { color: var(--accent-text); border-color: var(--accent); }
+.project-chip-caret { margin-left: 6px; font-size: 9px; opacity: 0.8; }
 
-.sealed-batch { font-size: 12.5px; color: var(--accent-text); letter-spacing: 0.04em; }
+.sealed-project { font-size: 12.5px; color: var(--accent-text); letter-spacing: 0.04em; }
 
 .spin {
   width: 26px;

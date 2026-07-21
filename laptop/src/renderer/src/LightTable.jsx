@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+/** At or below this width an image is treated as pixel art and shown unsmoothed. */
+export const PIXEL_ART_MAX = 256;
+
 function fmtAgo(iso) {
   const ms = Date.now() - new Date(iso).getTime();
   const min = Math.round(ms / 60000);
@@ -32,6 +35,7 @@ export default function LightTable({
 }) {
   const fileInput = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [pixelArt, setPixelArt] = useState(true);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saved, setSaved] = useState(null); // null | {path} | {error}
   const [saving, setSaving] = useState(false);
@@ -153,14 +157,22 @@ export default function LightTable({
 
       {files.length > 1 && (
         <div className="warnstrip">
-          {files.length} sprites are waiting. Pick the one for this commission.
+          {files.length} files are waiting. Pick the one for this delivery.
         </div>
       )}
 
       {/* the checkerboard means "transparency", so it only belongs behind an actual sprite */}
       <div className={'table' + (selection ? ' checker' : '')}>
+        {/* Pixel art must not go soft, but a photo upscaled with nearest-neighbour
+            looks broken. Small images are the ones that are pixel art, so let the
+            image itself decide rather than asking anyone to configure it. */}
         {selection && previewUrl && (
-          <img className="sprite" src={previewUrl} alt="Sprite preview" />
+          <img
+            className={'artwork' + (pixelArt ? ' pixelated' : '')}
+            src={previewUrl}
+            alt="Artwork preview"
+            onLoad={(e) => setPixelArt(e.target.naturalWidth <= PIXEL_ART_MAX)}
+          />
         )}
         {selection && previewLoading && <div className="spin" />}
 
@@ -169,8 +181,8 @@ export default function LightTable({
         {selection && !busy && !confirmingDiscard && (
           <button
             className="iconbtn small discard-x"
-            title="Remove this sprite"
-            aria-label="Remove this sprite"
+            title="Remove this file"
+            aria-label="Remove this file"
             onClick={() => setConfirmingDiscard(true)}
           >
             &#10005;
@@ -178,7 +190,7 @@ export default function LightTable({
         )}
         {selection && confirmingDiscard && (
           <div className="discard-confirm">
-            <div className="discard-ask">Remove this sprite?</div>
+            <div className="discard-ask">Remove this file?</div>
             <div className="hint-sub">
               {selection.kind === 'local'
                 ? 'It is only picked here, so nothing in Drive changes.'
@@ -216,14 +228,14 @@ export default function LightTable({
               <div className="spin" />
             ) : files.length === 0 ? (
               <>
-                <div>Waiting for a sprite from the tablet</div>
+                <div>Waiting for a file from your phone or tablet</div>
                 <div className="hint-sub">
-                  Draw, then hit Send on the tablet, and it lands here. Staging is checked every
+                  Send it from the tablet app and it lands here. Staging is checked every
                   15&nbsp;seconds.
                 </div>
               </>
             ) : (
-              <div>Pick a sprite from the list below</div>
+              <div>Pick a file from the list below</div>
             )}
           </div>
         )}
@@ -265,18 +277,18 @@ export default function LightTable({
             className="btn"
             onClick={saveSprite}
             disabled={!selection || busy || saving}
-            title="Save this sprite as a .png on this computer"
+            title="Save this file onto this computer"
           >
-            {saving ? 'Saving…' : 'Save sprite to this computer'}
+            {saving ? 'Saving…' : 'Save to this computer'}
           </button>
           <button className="btn ghost" onClick={() => fileInput.current.click()} disabled={busy}>
-            use a local .png instead
+            use a file from this computer
           </button>
         </div>
         <input
           ref={fileInput}
           type="file"
-          accept=".png,image/png"
+          accept="image/*"
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files && e.target.files[0];

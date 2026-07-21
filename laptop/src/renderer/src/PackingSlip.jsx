@@ -5,7 +5,7 @@ import React, { useRef, useState } from 'react';
    templates did what the preview promised. */
 function stepsFor(stagedName, attachedName) {
   return [
-    { id: 'folders', label: 'Batch + client folder ready' },
+    { id: 'folders', label: 'Project + client folder ready' },
     { id: 'sprite', label: stagedName ? `${stagedName} filed` : 'Artwork renamed & filed' },
     { id: 'gif', label: attachedName ? `${attachedName} uploaded` : 'Attachment uploaded' },
     { id: 'share', label: 'Sharing: anyone with the link' },
@@ -31,7 +31,7 @@ export default function PackingSlip({
   onClientName,
   folderExists,
   namePreview,
-  batchName,
+  projectName,
   attachedName,
   attachedExt,
   stagedName,
@@ -75,7 +75,7 @@ export default function PackingSlip({
         <div className="sealed">
           <div className="stamp-ring">&#10003;</div>
           <div className="sealed-title">Packed for {r.folderName}</div>
-          {r.batchName && <div className="sealed-batch">filed in {r.batchName}</div>}
+          {r.projectName && <div className="sealed-project">filed in {r.projectName}</div>}
           <div className="sealed-files">
             {r.spriteName} + {r.gifName}
           </div>
@@ -96,7 +96,7 @@ export default function PackingSlip({
             </button>
           </div>
           <button className="btn ghost" onClick={onNext}>
-            Next commission &rarr;
+            Next delivery &rarr;
           </button>
         </div>
       </section>
@@ -105,7 +105,7 @@ export default function PackingSlip({
 
   return (
     <section className="zone zone-right">
-      {/* the batch is named by the header chip and spelled out in the destination
+      {/* the project is named by the header chip and spelled out in the destination
           line below, so the slip itself stays quiet about it */}
       <div className="zone-head">
         <span className="drawer-label">Packing slip</span>
@@ -125,8 +125,8 @@ export default function PackingSlip({
         {folderExists && (
           <div className="warnstrip">
             A folder with this name already exists
-            {folderExists.batchName ? ` in ${folderExists.batchName}` : ''}. Check the spelling
-            if this is meant to be someone new. Delivering this one into {batchName} anyway.
+            {folderExists.projectName ? ` in ${folderExists.projectName}` : ''}. Check the spelling
+            if this is meant to be someone new. Delivering this one into {projectName} anyway.
           </div>
         )}
       </div>
@@ -191,7 +191,7 @@ export default function PackingSlip({
           {canDeliver
             ? 'Deliver to Drive'
             : !selection
-              ? 'Waiting for a sprite…'
+              ? 'Waiting for the artwork…'
               : !clientName.trim()
                 ? 'Name the client first'
                 : 'Add the attachment to deliver'}

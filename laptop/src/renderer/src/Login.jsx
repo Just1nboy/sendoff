@@ -19,7 +19,7 @@ export default function Login({ onLoggedIn }) {
         <h2>Connect Google Drive</h2>
         <p className="lede">
           A browser tab opens for the Google sign-in. Use the Google account whose Drive
-          should hold the commissions. First time through, Google shows an
+          should hold the deliveries. First time through, Google shows an
           &ldquo;unverified app&rdquo; warning: click <strong>Advanced &rarr; Continue</strong>.
           That&rsquo;s expected, since Neku is a private app, not a store-published one.
         </p>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyTemplate, cleanName, resolveNaming, templateVars } from '../../main/naming.mjs';
-import LightTable from './LightTable.jsx';
+import LightTable, { PIXEL_ART_MAX } from './LightTable.jsx';
 import PackingSlip from './PackingSlip.jsx';
 
 const POLL_MS = 15000;
@@ -52,7 +52,9 @@ async function makeThumb(blob) {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false; // pixel art must not go soft
+    // pixel art must not go soft, but smoothing off makes a downscaled photo
+    // grainy, so let the size decide the same way the light table does
+    ctx.imageSmoothingEnabled = bitmap.width > PIXEL_ART_MAX;
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close();
     return canvas.toDataURL('image/png');
@@ -75,7 +77,7 @@ export default function Workbench({ state }) {
   });
   const [selection, setSelection] = useState(null); // {kind:'drive',id,name}|{kind:'local',file,name}
   const [clientName, setClientName] = useState('');
-  const [folderExists, setFolderExists] = useState(null); // null | { batchName }
+  const [folderExists, setFolderExists] = useState(null); // null | { projectName }
   const [gif, setGif] = useState(null); // { file, url }
   const [foundGif, setFoundGif] = useState(null); // gif Neku saw land in Downloads
   const [delivery, setDelivery] = useState(null); // null|{phase:'run',step}|{phase:'done',result}|{phase:'error',...}
@@ -146,7 +148,7 @@ export default function Workbench({ state }) {
   }, []);
 
   /* ---------- folder-exists check (typo guard: repeat clients don't happen) ----------
-     Looks across every batch, not just this one: a name reused from an old batch
+     Looks across every project, not just this one: a name reused from an old project
      is the likeliest kind of typo. */
 
   useEffect(() => {
@@ -155,7 +157,7 @@ export default function Workbench({ state }) {
     if (!name) return undefined;
     const timer = setTimeout(async () => {
       const res = await window.neku.checkClientFolder(name);
-      if (res.ok && res.data.exists) setFolderExists({ batchName: res.data.batchName });
+      if (res.ok && res.data.exists) setFolderExists({ projectName: res.data.projectName });
     }, 600);
     return () => clearTimeout(timer);
   }, [clientName]);
@@ -272,8 +274,8 @@ export default function Workbench({ state }) {
     if (!nameOk) return null;
     const base = {
       clientName: cleanName(clientName),
-      projectName: state.batch.name,
-      projectNumber: state.batch.number ?? null,
+      projectName: state.project.name,
+      projectNumber: state.project.number ?? null,
     };
     try {
       return {
@@ -291,7 +293,7 @@ export default function Workbench({ state }) {
       // a template that fills in to nothing: say so rather than showing a lie
       return null;
     }
-  }, [nameOk, clientName, naming, selection, gif, state.batch]);
+  }, [nameOk, clientName, naming, selection, gif, state.project]);
   const canDeliver =
     Boolean(selection) && nameOk && Boolean(gif) && (!delivery || delivery.phase !== 'run');
 
@@ -329,8 +331,8 @@ export default function Workbench({ state }) {
     }
   }, [selection, gif, clientName, staging.stagingId, refreshStaging]);
 
-  // "next commission" stays inside the current batch: that is the whole point of
-  // batching, one pick at the start and then straight through the queue
+  // "next commission" stays inside the current project: that is the whole point of
+  // projecting, one pick at the start and then straight through the queue
   const resetForNext = useCallback(() => {
     setSelection(null);
     setClientName('');
@@ -379,7 +381,7 @@ export default function Workbench({ state }) {
           sel: Boolean(selection),
           gif: Boolean(gif),
           name: clientName,
-          batch: state.batch.name,
+          project: state.project.name,
           phase: deliveryRef.current ? deliveryRef.current.phase : 'idle',
           calls: window.__nekuDeliverCalls || 0,
         }),
@@ -389,7 +391,7 @@ export default function Workbench({ state }) {
   /* ---------- render ---------- */
 
   const namePreview = resolved
-    ? `${resolved.staged} + ${resolved.attached} → ${state.settings.rootName}/${state.batch.name}/${resolved.client}`
+    ? `${resolved.staged} + ${resolved.attached} → ${state.settings.rootName}/${state.project.name}/${resolved.client}`
     : null;
 
   return (
@@ -421,7 +423,7 @@ export default function Workbench({ state }) {
         folderExists={folderExists}
         namePreview={namePreview}
         rootName={state.settings.rootName}
-        batchName={state.batch.name}
+        projectName={state.project.name}
         attachedName={resolved ? resolved.attached : null}
         attachedExt={attachedExt}
         stagedName={resolved ? resolved.staged : null}

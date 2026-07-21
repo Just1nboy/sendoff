@@ -69,18 +69,18 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     return;
   }
 
-  // day one on the friend's machine: no batches exist yet, so the menu must offer
+  // day one on the friend's machine: no projects exist yet, so the menu must offer
   // to start at Batch 5 rather than Batch 1 (he already did four by hand)
   if (process.env.NEKU_MOCK_EMPTY === '1') {
     await sleep(2200);
-    const rows = await js(`document.querySelectorAll('.batch-menu .batch-row').length`);
+    const rows = await js(`document.querySelectorAll('.project-menu .project-row').length`);
     const cta = await js(
-      `(document.querySelector('.batch-menu .btn.primary') || {}).textContent || ''`
+      `(document.querySelector('.project-menu .btn.primary') || {}).textContent || ''`
     );
     const empty = await js(
-      `(document.querySelector('.batch-menu .aside') || {}).textContent || ''`
+      `(document.querySelector('.project-menu .aside') || {}).textContent || ''`
     );
-    log(`[autopilot] first run: ${rows} batches, cta "${cta}", note "${empty}"`);
+    log(`[autopilot] first run: ${rows} projects, cta "${cta}", note "${empty}"`);
     if (rows !== 0 || cta !== `Start ${seededProject}`) {
       throw new Error(
         `first run should offer Start ${seededProject}, offered "${cta}" with ${rows} rows`
@@ -92,25 +92,25 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     return;
   }
 
-  // a session starts at the batch menu; the mock drive seeds one finished batch
+  // a session starts at the project menu; the mock drive seeds one finished project
   await sleep(2200);
-  const batchRows = await js(`document.querySelectorAll('.batch-menu .batch-row').length`);
+  const projectRows = await js(`document.querySelectorAll('.project-menu .project-row').length`);
   const firstRow = await js(
-    `(document.querySelector('.batch-menu .batch-row .fname') || {}).textContent || ''`
+    `(document.querySelector('.project-menu .project-row .fname') || {}).textContent || ''`
   );
-  log(`[autopilot] batch menu: ${batchRows} existing batch(es), first: "${firstRow}"`);
-  if (batchRows < 1 || firstRow !== seededProject) {
-    throw new Error(`batch menu did not list the existing batch "${seededProject}"`);
+  log(`[autopilot] project menu: ${projectRows} existing project(s), first: "${firstRow}"`);
+  if (projectRows < 1 || firstRow !== seededProject) {
+    throw new Error(`project menu did not list the existing project "${seededProject}"`);
   }
-  await shot('0-batches.png');
+  await shot('0-projects.png');
 
-  // start the next batch and land in the workbench inside it
-  await js(`window.__nekuBatchTest.startNew()`);
+  // start the next project and land in the workbench inside it
+  await js(`window.__nekuProjectTest.startNew()`);
   await sleep(1600);
   const chip = await js(
-    `(document.querySelector('.bar .batch-chip') || {}).textContent || ''`
+    `(document.querySelector('.bar .project-chip') || {}).textContent || ''`
   );
-  log(`[autopilot] header batch chip: "${chip}"`);
+  log(`[autopilot] header project chip: "${chip}"`);
   if (!chip.startsWith(openProject)) {
     throw new Error(`expected to be working in ${openProject}, header says "${chip}"`);
   }
@@ -334,13 +334,13 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
   await sleep(500);
 
-  // the destination the artist reads before committing must name the batch
+  // the destination the artist reads before committing must name the project
   const preview = await js(
     `(document.querySelector('.zone-right .note.mono') || {}).textContent || ''`
   );
   log(`[autopilot] destination preview: "${preview}"`);
   if (!preview.endsWith(`/${openProject}/Aiko`)) {
-    throw new Error(`destination preview does not point into the batch: "${preview}"`);
+    throw new Error(`destination preview does not point into the project: "${preview}"`);
   }
   await shot('2-packed.png');
 
@@ -399,8 +399,8 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   if (!latest || latest.clientName !== 'Aiko' || !latest.link) {
     throw new Error('finished delivery was not recorded in history');
   }
-  if (latest.batchName !== openProject) {
-    throw new Error(`delivery was recorded under "${latest.batchName}", expected ${openProject}`);
+  if (latest.projectName !== openProject) {
+    throw new Error(`delivery was recorded under "${latest.projectName}", expected ${openProject}`);
   }
 
   await shot('3-sealed.png');
@@ -425,40 +425,40 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
   await shot('4-history.png');
 
-  // ---- the typo guard has to see across batches, not just the open one ----
+  // ---- the typo guard has to see across projects, not just the open one ----
   await js(`document.querySelector('.sheet .btn-row .btn').click()`); // close history
   await sleep(400);
   await js(`document.querySelector('.sealed .btn.ghost').click()`); // next commission
   await sleep(500);
-  // this client lives in Batch 5 while we are working in Batch 6
+  // this client lives in the seeded project while we are working in the open one
   await js(`window.__nekuTest.setName('OldClientFromMarch')`);
   await sleep(1500); // debounce + mock latency
   const warn = await js(
     `(document.querySelector('.zone-right .warnstrip') || {}).textContent || ''`
   );
-  log(`[autopilot] cross-batch typo warning: "${warn}"`);
+  log(`[autopilot] cross-project typo warning: "${warn}"`);
   if (!warn.includes(seededProject)) {
-    throw new Error('typo guard did not report the batch the existing client is in');
+    throw new Error('typo guard did not report the project the existing client is in');
   }
 
-  // ---- switching back to an earlier batch ----
+  // ---- switching back to an earlier project ----
   await js(`window.__nekuTest.setName('')`);
-  await js(`document.querySelector('.bar .batch-chip').click()`);
+  await js(`document.querySelector('.bar .project-chip').click()`);
   await sleep(1400);
-  const rows = await js(`document.querySelectorAll('.batch-menu .batch-row').length`);
-  log(`[autopilot] batch menu after one delivery: ${rows} batches`);
+  const rows = await js(`document.querySelectorAll('.project-menu .project-row').length`);
+  log(`[autopilot] project menu after one delivery: ${rows} projects`);
   if (rows !== 2) {
     throw new Error(`expected ${seededProject} and ${openProject} in the menu, saw ${rows}`);
   }
-  await shot('5-batch-switch.png');
-  await js(`document.querySelectorAll('.batch-menu .batch-row')[1].click()`); // Batch 5
+  await shot('5-project-switch.png');
+  await js(`document.querySelectorAll('.project-menu .project-row')[1].click()`); // the seeded project
   await sleep(1400);
   const backChip = await js(
-    `(document.querySelector('.bar .batch-chip') || {}).textContent || ''`
+    `(document.querySelector('.bar .project-chip') || {}).textContent || ''`
   );
-  log(`[autopilot] reopened batch: "${backChip}"`);
+  log(`[autopilot] reopened project: "${backChip}"`);
   if (!backChip.startsWith(seededProject)) {
-    throw new Error(`selecting an existing batch failed, header says "${backChip}"`);
+    throw new Error(`selecting an existing project failed, header says "${backChip}"`);
   }
 
   /* ---- Remove really removes ----

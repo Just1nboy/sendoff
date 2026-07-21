@@ -1,8 +1,8 @@
-/* The first screen of a working session: which batch is this sprite going into?
+/* The first screen of a working session: which project is this delivery going into?
    Three ways out, matching how he actually works:
-     - carry on with a batch that already exists (pick a row)
-     - start the next batch (the primary button)
-     - anything already delivered stays where it is; batches are never merged */
+     - carry on with a project that already exists (pick a row)
+     - start the next project (the primary button)
+     - anything already delivered stays where it is; projects are never merged */
 import React, { useCallback, useEffect, useState } from 'react';
 
 function fmtStarted(iso) {
@@ -14,14 +14,14 @@ function fmtStarted(iso) {
 
 const clientCount = (n) => (n === 1 ? '1 client' : `${n} clients`);
 
-export default function BatchMenu({ state, onPicked }) {
-  const [list, setList] = useState(null); // { batches, nextNumber }
+export default function ProjectMenu({ state, onPicked }) {
+  const [list, setList] = useState(null); // { projects, nextNumber }
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await window.neku.listBatches();
+    const res = await window.neku.listProjects();
     if (res.ok) setList(res.data);
     else setError(res.message);
   }, []);
@@ -31,10 +31,10 @@ export default function BatchMenu({ state, onPicked }) {
   }, [load]);
 
   const open = useCallback(
-    async (batch) => {
+    async (project) => {
       setBusy(true);
       setError(null);
-      const res = await window.neku.selectBatch(batch);
+      const res = await window.neku.selectProject(project);
       setBusy(false);
       if (res.ok) onPicked();
       else setError(res.message);
@@ -45,7 +45,7 @@ export default function BatchMenu({ state, onPicked }) {
   const startNew = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const res = await window.neku.createBatch();
+    const res = await window.neku.createProject();
     setBusy(false);
     if (res.ok) await open(res.data);
     else setError(res.message);
@@ -54,10 +54,10 @@ export default function BatchMenu({ state, onPicked }) {
   /* test hooks (mock mode only, used by npm run shots) */
   useEffect(() => {
     if (!state.mock) return undefined;
-    window.__nekuBatchTest = {
+    window.__nekuProjectTest = {
       startNew,
       open,
-      count: () => (list ? list.batches.length : -1),
+      count: () => (list ? list.projects.length : -1),
     };
     return undefined;
   });
@@ -67,14 +67,14 @@ export default function BatchMenu({ state, onPicked }) {
 
   return (
     <main className="centered-col">
-      <div className="panel batch-menu" style={{ width: 'min(92vw, 560px)' }}>
-        <h2>Which batch?</h2>
+      <div className="panel project-menu" style={{ width: 'min(92vw, 560px)' }}>
+        <h2>Which project?</h2>
         <p className="lede">
-          Every client folder lands inside a batch, so{' '}
+          Every client folder lands inside a project, so{' '}
           <code>
             {state.settings.rootName}/{nextName}/Aiko
           </code>
-          . Carry on with a batch you already started, or open a new one.
+          . Carry on with a project you already started, or open a new one.
         </p>
 
         {!list && !error && (
@@ -84,25 +84,25 @@ export default function BatchMenu({ state, onPicked }) {
           </div>
         )}
 
-        {list && list.batches.length > 0 && (
-          <div className="batch-list">
-            {list.batches.map((b) => (
+        {list && list.projects.length > 0 && (
+          <div className="project-list">
+            {list.projects.map((b) => (
               <button
                 key={b.id}
-                className="batch-row"
+                className="project-row"
                 disabled={busy}
                 onClick={() => open(b)}
               >
                 <span className="fname">{b.name}</span>
                 <span className="fsize">{clientCount(b.clients)}</span>
-                <span className="fsize batch-when">{fmtStarted(b.createdTime)}</span>
+                <span className="fsize project-when">{fmtStarted(b.createdTime)}</span>
               </button>
             ))}
           </div>
         )}
 
-        {list && list.batches.length === 0 && (
-          <p className="aside">No batches yet. The first one starts here.</p>
+        {list && list.projects.length === 0 && (
+          <p className="aside">No projects yet. The first one starts here.</p>
         )}
 
         {error && (

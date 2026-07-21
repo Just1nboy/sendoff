@@ -39,9 +39,12 @@ const FALLBACKS = { stagingName: 'Sprite Staging', rootName: 'Commissions' };
 
 const store = new Store({ name: MOCK ? 'neku-mock' : 'neku' });
 
-// autopilot runs must be reproducible: always start at the batch menu, never in
-// whatever batch the last run happened to leave open
-if (process.env.NEKU_SHOT_DIR) store.delete('currentBatch');
+// autopilot runs must be reproducible: always start at the project menu, never in
+// whatever project the last run happened to leave open
+if (process.env.NEKU_SHOT_DIR) {
+  store.delete('currentProject');
+  store.delete('currentBatch');
+}
 
 /* NEKU_PRESET=photo boots as a different trade, so the same self-driving run can
    prove the flow is not tied to one set of names. Unset means the default. */
@@ -96,7 +99,7 @@ let latestGif = null;
 /* Whether the packing slip already holds a gif. That is the only thing worth
    suppressing a notice for. An earlier version also required the workbench to be
    open, which made the notice silently do nothing whenever he happened to be on
-   the batch menu — a shortcut that quietly fails to appear is worse than one
+   the project menu — a shortcut that quietly fails to appear is worse than one
    that occasionally appears when it wasn't needed, so the gate stays this loose. */
 let gifAttached = false;
 
@@ -172,11 +175,14 @@ function createWindow() {
 
 /* ---------- helpers ---------- */
 
-/** The batch he picked from the menu, remembered across restarts so reopening
-    Neku mid-batch drops him straight back into it. */
-function currentBatch() {
-  const batch = store.get('currentBatch');
-  return batch && batch.name ? batch : null;
+/** The project he picked from the menu, remembered across restarts so reopening
+    Neku mid-project drops him straight back into it.
+
+    Reads the pre-rename key too: an install that was mid-project when it updated
+    must land back in that project, not be dumped at the menu. */
+function currentProject() {
+  const project = store.get('currentProject') || store.get('currentBatch');
+  return project && project.name ? project : null;
 }
 
 function currentState() {
@@ -185,7 +191,7 @@ function currentState() {
     configured: MOCK || auth.hasCreds(effectiveSettings()),
     loggedIn: MOCK || auth.isLoggedIn(store),
     settings: effectiveSettings(),
-    batch: currentBatch(),
+    project: currentProject(),
   };
 }
 
@@ -314,29 +320,32 @@ handle('auth:logout', async () => {
   return currentState();
 });
 
-handle('batch:list', async () => {
+handle('project:list', async () => {
   const drive = getDriveOrThrow();
   const settings = effectiveSettings();
-  return driveOps.listBatches(drive, settings.rootName, settings.naming);
+  return driveOps.listProjects(drive, settings.rootName, settings.naming);
 });
 
-handle('batch:create', async () => {
+handle('project:create', async () => {
   const drive = getDriveOrThrow();
   const settings = effectiveSettings();
-  return driveOps.createBatch(drive, settings.rootName, settings.naming);
+  return driveOps.createProject(drive, settings.rootName, settings.naming);
 });
 
-/** Pick a batch to work in, or pass null to go back to the batch menu. */
-handle('batch:select', (_e, batch) => {
-  if (batch && batch.name) {
-    store.set('currentBatch', {
-      id: batch.id || null,
-      name: String(batch.name),
-      number: batch.number ?? null,
+/** Pick a project to work in, or pass null to go back to the project menu. */
+handle('project:select', (_e, project) => {
+  if (project && project.name) {
+    store.set('currentProject', {
+      id: project.id || null,
+      name: String(project.name),
+      number: project.number ?? null,
     });
   } else {
-    store.delete('currentBatch');
+    store.delete('currentProject');
   }
+  // the pre-rename key is read as a fallback, so leaving it behind would let an
+  // old project reappear the moment he tried to go back to the menu
+  store.delete('currentBatch');
   return currentState();
 });
 
@@ -413,9 +422,9 @@ handle('client:check', async (_e, clientName) => {
 
 handle('deliver', async (event, payload) => {
   const drive = getDriveOrThrow();
-  // the store is the authority on which batch is open, not the renderer payload
-  const batch = currentBatch();
-  if (!batch) throw new Error('No batch is open. Pick a batch first.');
+  // the store is the authority on which project is open, not the renderer payload
+  const project = currentProject();
+  if (!project) throw new Error('No project is open. Pick a project first.');
   const sprite =
     payload.sprite.kind === 'drive'
       ? payload.sprite
@@ -427,8 +436,8 @@ handle('deliver', async (event, payload) => {
       rootName: settings.rootName,
       stagingName: settings.stagingName,
       naming: settings.naming,
-      batchName: batch.name,
-      batchNumber: batch.number ?? null,
+      projectName: project.name,
+      projectNumber: project.number ?? null,
       stagingId: payload.stagingId,
       sprite,
       clientName: payload.clientName,
@@ -446,7 +455,7 @@ handle('deliver', async (event, payload) => {
       : null;
   history.unshift({
     clientName: result.folderName,
-    batchName: result.batchName,
+    projectName: result.projectName,
     link: result.link,
     files: `${result.spriteName} + ${result.gifName}`,
     thumb,
@@ -461,7 +470,14 @@ handle('deliver', async (event, payload) => {
   return result;
 });
 
-handle('history:list', () => store.get('history') || []);
+/* Deliveries recorded before the batch/project rename carry batchName. They are
+   the record of real work and old links have to stay findable, so they are read
+   forward rather than migrated in place. */
+handle('history:list', () =>
+  (store.get('history') || []).map((en) =>
+    en.projectName || !en.batchName ? en : { ...en, projectName: en.batchName }
+  )
+);
 
 handle('clipboard:copy', (_e, text) => {
   clipboard.writeText(String(text));
