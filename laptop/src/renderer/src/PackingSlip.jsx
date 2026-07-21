@@ -107,10 +107,13 @@ export default function PackingSlip({
           </div>
           <div className="btn-row">
             <button className="btn primary" onClick={copyLink}>
-              {copied ? 'Copied ✓' : 'Copy link'}
+              {copied ? 'Copied ✓' : r.isPath ? 'Copy path' : 'Copy link'}
             </button>
-            <button className="btn" onClick={() => window.neku.openLink(r.link)}>
-              Open in Drive
+            <button
+              className="btn"
+              onClick={() => (r.isPath ? window.neku.openFolder(r.link) : window.neku.openLink(r.link))}
+            >
+              {r.isPath ? 'Open folder' : 'Open in Drive'}
             </button>
           </div>
           <button className="btn ghost" onClick={onNext}>

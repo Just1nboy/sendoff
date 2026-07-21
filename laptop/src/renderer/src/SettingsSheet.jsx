@@ -58,6 +58,11 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
     onClose();
   }
 
+  async function chooseFolder() {
+    const res = await window.neku.pickFolder();
+    if (res.ok && !res.data.canceled) setForm({ ...form, localRoot: res.data.path });
+  }
+
   async function disconnect() {
     await window.neku.logout();
     onChanged();
@@ -186,6 +191,41 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
 
         <h3 className="sheet-section">Where it goes</h3>
         <div className="field">
+          <label>Deliveries land in</label>
+          <div className="preset-row">
+            <button
+              type="button"
+              className={`btn slim${form.storage === 'local' ? ' primary' : ''}`}
+              onClick={() => setForm({ ...form, storage: 'local' })}
+            >
+              A folder on this computer
+            </button>
+            <button
+              type="button"
+              className={`btn slim${form.storage === 'drive' ? ' primary' : ''}`}
+              onClick={() => setForm({ ...form, storage: 'drive' })}
+            >
+              Google Drive
+            </button>
+          </div>
+          {form.storage === 'local' && (
+            <>
+              <div className="btn-row" style={{ marginTop: 8 }}>
+                <button className="btn slim" onClick={chooseFolder}>
+                  {form.localRoot ? 'Change folder' : 'Choose folder…'}
+                </button>
+              </div>
+              <div className="note mono" title={form.localRoot}>
+                {form.localRoot || 'No folder chosen yet.'}
+              </div>
+              <div className="note">
+                Nothing is shared automatically: a folder on this computer has no link. Neku
+                offers to open the folder instead.
+              </div>
+            </>
+          )}
+        </div>
+        <div className="field">
           <label htmlFor="s-staging">Staging folder</label>
           <input
             id="s-staging"
@@ -213,6 +253,11 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
         )}
 
         <h3 className="sheet-section">Google account</h3>
+        {form.storage === 'local' && (
+          <div className="note" style={{ marginBottom: 10 }}>
+            Not used while deliveries go to a folder on this computer.
+          </div>
+        )}
         <div className="field">
           <label htmlFor="s-cid">OAuth client id</label>
           <input id="s-cid" value={form.clientId} spellCheck={false} onChange={set('clientId')} />

@@ -12,13 +12,13 @@ import Store from 'electron-store';
 import * as auth from './auth.js';
 import * as realDrive from './drive.js';
 import * as mockDrive from './drive-mock.js';
+import * as localStorage from './storage-local.js';
 import { runAutopilot } from './autopilot.js';
 import { startGifWatch, stopGifWatch, wasAnnounced, watchIsActive } from './gif-watch.js';
 import { matchPreset, presetById, resolveNaming, validateNaming } from './naming.mjs';
 import { hideNotice, showNotice } from './notice.js';
 
 const MOCK = process.env.NEKU_MOCK === '1';
-const driveOps = MOCK ? mockDrive : realDrive;
 
 const BAKED = typeof __NEKU_BAKED__ !== 'undefined' ? __NEKU_BAKED__ : {};
 
@@ -46,6 +46,12 @@ if (process.env.NEKU_SHOT_DIR) {
   store.delete('currentBatch');
 }
 
+// a wizard run has to start with nothing chosen, every time
+if (process.env.NEKU_FORCE_SETUP === '1') {
+  store.delete('storage');
+  store.delete('localRoot');
+}
+
 /* NEKU_PRESET=photo boots as a different trade, so the same self-driving run can
    prove the flow is not tied to one set of names. Unset means the default. */
 if (process.env.NEKU_PRESET) {
@@ -69,19 +75,58 @@ function effectiveNaming() {
   });
 }
 
+const pickSetting = (key) => store.get(key) || SIDECAR[key] || BAKED[key] || FALLBACKS[key] || '';
+
+/* Where deliveries go. Two real backends: a Google Drive account, or a folder on
+   this computer (no account, no Cloud project, nothing to set up).
+
+   An empty answer means nobody has chosen yet, which is what puts the first-run
+   wizard on screen. A build that shipped WITH credentials is a Drive build by
+   definition, so it never asks: the person who packaged it already answered. */
+function effectiveStorage() {
+  /* Capturing or driving the first-run screens on a machine that is already set
+     up. Same purpose as NEKU_MOCK_EMPTY: reach a state that only exists on
+     somebody else's day one. It stops applying the moment the wizard saves a
+     choice, or finishing the wizard would just show it again. */
+  if (process.env.NEKU_FORCE_SETUP === '1' && !store.get('storage')) return '';
+  const chosen = store.get('storage') || SIDECAR.storage || BAKED.storage || '';
+  if (chosen === 'local' || chosen === 'drive') return chosen;
+  return auth.hasCreds({
+    clientId: pickSetting('clientId'),
+    clientSecret: pickSetting('clientSecret'),
+  })
+    ? 'drive'
+    : '';
+}
+
 function effectiveSettings() {
-  const pick = (key) => store.get(key) || SIDECAR[key] || BAKED[key] || FALLBACKS[key] || '';
   const naming = effectiveNaming();
   const preset = matchPreset(naming);
   return {
-    clientId: pick('clientId'),
-    clientSecret: pick('clientSecret'),
-    stagingName: pick('stagingName'),
-    rootName: pick('rootName'),
+    clientId: pickSetting('clientId'),
+    clientSecret: pickSetting('clientSecret'),
+    stagingName: pickSetting('stagingName'),
+    rootName: pickSetting('rootName'),
+    storage: effectiveStorage(),
+    localRoot: pickSetting('localRoot'),
     naming,
     // null means the templates have been hand-edited away from every preset
     presetId: preset ? preset.id : null,
   };
+}
+
+/** Mock beats everything (npm run mock/shots); otherwise the chosen backend. */
+function storageMode() {
+  if (MOCK) return 'mock';
+  return effectiveStorage() === 'local' ? 'local' : 'drive';
+}
+
+/** The backend module in force. Every one of these exports the same shapes. */
+function ops() {
+  const mode = storageMode();
+  if (mode === 'mock') return mockDrive;
+  if (mode === 'local') return localStorage;
+  return realDrive;
 }
 
 let win = null;
@@ -185,18 +230,28 @@ function currentProject() {
   return project && project.name ? project : null;
 }
 
+/* "configured" means the app knows where deliveries go; "loggedIn" means it may
+   actually put them there. A local folder collapses the two: once a folder is
+   picked there is nothing left to sign in to. */
 function currentState() {
+  const settings = effectiveSettings();
+  const mode = storageMode();
   return {
     mock: MOCK,
-    configured: MOCK || auth.hasCreds(effectiveSettings()),
-    loggedIn: MOCK || auth.isLoggedIn(store),
-    settings: effectiveSettings(),
+    storage: mode,
+    configured:
+      MOCK ||
+      (mode === 'local' ? Boolean(settings.localRoot) : settings.storage === 'drive' && auth.hasCreds(settings)),
+    loggedIn: MOCK || mode === 'local' || auth.isLoggedIn(store),
+    settings,
     project: currentProject(),
   };
 }
 
 function getDriveOrThrow() {
-  if (MOCK) return mockDrive.getDrive();
+  const mode = storageMode();
+  if (mode === 'mock') return mockDrive.getDrive();
+  if (mode === 'local') return localStorage.getDrive(effectiveSettings().localRoot);
   const client = auth.getAuthedClient(store, effectiveSettings());
   if (!client) {
     const err = new Error('Not connected to Google Drive.');
@@ -280,7 +335,7 @@ function handle(channel, fn) {
 handle('state:get', () => currentState());
 
 handle('settings:save', (_e, partial) => {
-  const allowed = ['clientId', 'clientSecret', 'stagingName', 'rootName'];
+  const allowed = ['clientId', 'clientSecret', 'stagingName', 'rootName', 'storage', 'localRoot'];
   const before = effectiveSettings().clientId;
 
   /* Naming is validated before anything is written: a template that fills in to
@@ -323,13 +378,13 @@ handle('auth:logout', async () => {
 handle('project:list', async () => {
   const drive = getDriveOrThrow();
   const settings = effectiveSettings();
-  return driveOps.listProjects(drive, settings.rootName, settings.naming);
+  return ops().listProjects(drive, settings.rootName, settings.naming);
 });
 
 handle('project:create', async () => {
   const drive = getDriveOrThrow();
   const settings = effectiveSettings();
-  return driveOps.createProject(drive, settings.rootName, settings.naming);
+  return ops().createProject(drive, settings.rootName, settings.naming);
 });
 
 /** Pick a project to work in, or pass null to go back to the project menu. */
@@ -351,10 +406,10 @@ handle('project:select', (_e, project) => {
 
 handle('staging:list', async () => {
   const drive = getDriveOrThrow();
-  const listing = await driveOps.listStaging(drive, effectiveSettings().stagingName);
+  const listing = await ops().listStaging(drive, effectiveSettings().stagingName);
   // seeing it here is what "the laptop has it" means, so stamp it now and let
   // the tablet stop wondering. Swallows its own errors.
-  await driveOps.markStagedSeen(drive, listing.files);
+  await ops().markStagedSeen(drive, listing.files);
   return listing;
 });
 
@@ -362,12 +417,12 @@ handle('staging:list', async () => {
     trash, so this is recoverable — see discardStaged. */
 handle('staging:discard', async (_e, fileId) => {
   const drive = getDriveOrThrow();
-  return driveOps.discardStaged(drive, String(fileId));
+  return ops().discardStaged(drive, String(fileId));
 });
 
 handle('file:bytes', async (_e, fileId) => {
   const drive = getDriveOrThrow();
-  return driveOps.getFileBytes(drive, fileId);
+  return ops().getFileBytes(drive, fileId);
 });
 
 /** Drop the parts of a name Windows will not accept in a file name, keeping
@@ -387,7 +442,7 @@ function safeSaveFileName(name) {
 handle('sprite:save', async (_e, sprite) => {
   const bytes =
     sprite.kind === 'drive'
-      ? await driveOps.getFileBytes(getDriveOrThrow(), sprite.id)
+      ? await ops().getFileBytes(getDriveOrThrow(), sprite.id)
       : Buffer.from(sprite.bytes);
   // reopen wherever he saved last: the editing tool's folder, most likely
   const dir = store.get('lastSaveDir') || app.getPath('downloads');
@@ -417,7 +472,7 @@ handle('shell:reveal', (_e, filePath) => {
 handle('client:check', async (_e, clientName) => {
   const drive = getDriveOrThrow();
   const settings = effectiveSettings();
-  return driveOps.checkClientFolder(drive, settings.rootName, clientName, settings.naming);
+  return ops().checkClientFolder(drive, settings.rootName, clientName, settings.naming);
 });
 
 handle('deliver', async (event, payload) => {
@@ -430,7 +485,7 @@ handle('deliver', async (event, payload) => {
       ? payload.sprite
       : { kind: 'local', name: payload.sprite.name, bytes: Buffer.from(payload.sprite.bytes) };
   const settings = effectiveSettings();
-  const result = await driveOps.deliver(
+  const result = await ops().deliver(
     drive,
     {
       rootName: settings.rootName,
@@ -462,6 +517,8 @@ handle('deliver', async (event, payload) => {
     projectName: result.projectName,
     revisionName: result.revisionName || null,
     link: result.link,
+    // a local delivery's "link" is a folder path, which opens differently
+    isPath: Boolean(result.isPath),
     files: `${result.spriteName} + ${result.gifName}`,
     thumb,
     deliveredAt: new Date().toISOString(),
@@ -526,6 +583,25 @@ handle('shell:open', (_e, url) => {
   return false;
 });
 
+/** A delivered folder in local mode: there is no link, so open the folder. */
+handle('shell:openPath', async (_e, target) => {
+  if (typeof target !== 'string' || !target) return false;
+  const message = await shell.openPath(target);
+  if (message) throw new Error(message);
+  return true;
+});
+
+/** Pick the folder deliveries go into. The only setup local mode needs. */
+handle('folder:pick', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Choose where deliveries go',
+    properties: ['openDirectory', 'createDirectory'],
+    defaultPath: effectiveSettings().localRoot || app.getPath('documents'),
+  });
+  if (res.canceled || !res.filePaths[0]) return { canceled: true };
+  return { canceled: false, path: res.filePaths[0] };
+});
+
 /* ---------- the found gif ---------- */
 
 handle('gif:latest', () => latestGif);
@@ -570,7 +646,7 @@ handle('notice:preview', async () => {
   if (!pendingNotice) return null;
   try {
     if (pendingNotice.kind === 'sprite') {
-      return await driveOps.getFileBytes(getDriveOrThrow(), pendingNotice.id);
+      return await ops().getFileBytes(getDriveOrThrow(), pendingNotice.id);
     }
     if (!latestGif || latestGif.size > PREVIEW_MAX_BYTES) return null;
     return await fs.promises.readFile(pendingNotice.path);

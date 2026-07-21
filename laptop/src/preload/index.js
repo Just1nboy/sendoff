@@ -19,6 +19,8 @@ const api = {
   getHistory: () => ipcRenderer.invoke('history:list'),
   copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),
   openLink: (url) => ipcRenderer.invoke('shell:open', url),
+  openFolder: (target) => ipcRenderer.invoke('shell:openPath', target),
+  pickFolder: () => ipcRenderer.invoke('folder:pick'),
   // the gif Neku spotted landing in Downloads, if he has not used it yet
   getLatestGif: () => ipcRenderer.invoke('gif:latest'),
   readGif: (filePath) => ipcRenderer.invoke('gif:read', filePath),

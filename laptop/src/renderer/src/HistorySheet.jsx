@@ -96,9 +96,14 @@ export default function HistorySheet({ onClose }) {
                 </div>
                 <div className="history-actions">
                   <button className="btn slim" onClick={() => copy(en.link, en.deliveredAt)}>
-                    {copiedIdx === en.deliveredAt ? 'Copied ✓' : 'Copy link'}
+                    {copiedIdx === en.deliveredAt ? 'Copied ✓' : en.isPath ? 'Copy path' : 'Copy link'}
                   </button>
-                  <button className="btn slim" onClick={() => window.neku.openLink(en.link)}>
+                  <button
+                    className="btn slim"
+                    onClick={() =>
+                      en.isPath ? window.neku.openFolder(en.link) : window.neku.openLink(en.link)
+                    }
+                  >
                     Open
                   </button>
                 </div>

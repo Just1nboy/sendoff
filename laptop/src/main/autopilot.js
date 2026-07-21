@@ -53,6 +53,84 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   };
   const js = (code) => win.webContents.executeJavaScript(code, true);
 
+  /* ---- the first-run wizard, all the way into a working local delivery ----
+
+     NEKU_WIZARD_DIR is the folder the (native, modal) folder picker is stubbed to
+     return. This is the only check that exercises the local-folder backend
+     through the real UI and IPC rather than as a library, so it is what proves
+     someone can install Neku with no Google account at all and deliver. */
+  if (process.env.NEKU_WIZARD_DIR) {
+    const chosenDir = path.resolve(process.env.NEKU_WIZARD_DIR);
+    await fs.mkdir(chosenDir, { recursive: true });
+    await sleep(1800);
+
+    const heading = await js(`(document.querySelector('.panel h2') || {}).textContent || ''`);
+    const cards = await js(
+      `JSON.stringify(Array.from(document.querySelectorAll('.choice-card .choice-title'))
+         .map((n) => n.textContent))`
+    );
+    log(`[autopilot] wizard step 1: "${heading}", choices ${cards}`);
+    if (!heading.toLowerCase().includes('where')) {
+      throw new Error(`first run should ask where deliveries go, asked "${heading}"`);
+    }
+    if (!JSON.parse(cards).some((c) => c.toLowerCase().includes('folder on this computer'))) {
+      throw new Error(`no local-folder option offered, saw ${cards}`);
+    }
+    await shot('wizard-1-storage.png');
+
+    const realShowOpen = dialog.showOpenDialog;
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [chosenDir] });
+    try {
+      await js(`document.querySelectorAll('.choice-card')[0].click()`);
+      await sleep(300);
+      await js(`document.querySelector('.field .btn-row .btn').click()`);
+      await sleep(600);
+    } finally {
+      dialog.showOpenDialog = realShowOpen;
+    }
+
+    await js(`document.querySelector('.panel .btn.primary.big').click()`);
+    await sleep(600);
+    const step2 = await js(`(document.querySelector('.panel h2') || {}).textContent || ''`);
+    const presets = await js(`document.querySelectorAll('.choice-card').length`);
+    log(`[autopilot] wizard step 2: "${step2}", ${presets} presets`);
+    if (!step2.toLowerCase().includes('deliver') || presets < 2) {
+      throw new Error(`step 2 should offer presets, showed "${step2}" with ${presets}`);
+    }
+    await shot('wizard-2-preset.png');
+
+    // finish, and land straight in the app: a local folder has nothing to sign into
+    await js(
+      `Array.from(document.querySelectorAll('.panel .btn')).find((b) => /Start using/i.test(b.textContent)).click()`
+    );
+    await sleep(2500);
+    const landed = await js(`(document.querySelector('.panel h2') || {}).textContent || ''`);
+    log(`[autopilot] after the wizard: "${landed}"`);
+    if (!landed.toLowerCase().includes('which project')) {
+      throw new Error(`should land on the project menu with no sign-in, landed on "${landed}"`);
+    }
+    await shot('wizard-3-done.png');
+
+    /* And it is a REAL backend, not a second mock: starting a project has to put
+       an actual folder on disk. Driven by clicking the button, since the mock
+       test hooks do not exist outside mock mode. */
+    const startCta = await js(
+      `(document.querySelector('.project-menu .btn.primary') || {}).textContent || ''`
+    );
+    log(`[autopilot] project menu CTA in local mode: "${startCta}"`);
+    await js(`document.querySelector('.project-menu .btn.primary').click()`);
+    await sleep(2500);
+    const made = await fs.readdir(path.join(chosenDir, 'Commissions')).catch(() => []);
+    log(`[autopilot] folders created on disk: ${JSON.stringify(made)}`);
+    if (made.length === 0) {
+      throw new Error('starting a project created nothing on disk');
+    }
+    await shot('wizard-4-workbench.png');
+    log('[autopilot] wizard check complete');
+    app.quit();
+    return;
+  }
+
   // real-mode cold check: no Drive calls possible, just verify which first-run
   // screen a build lands on (Connect for baked/sidecar builds, setup otherwise)
   if (!mock) {

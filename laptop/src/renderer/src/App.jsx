@@ -49,8 +49,16 @@ export default function App() {
       <header className="bar">
         <div>
           <span className="mark">NEKU</span>
+          {/* what the app is actually writing to, so "did that really upload?"
+              is answerable by looking up rather than by checking Drive */}
           <span className="route">
-            {state.mock ? 'mock drive: nothing real is uploaded' : 'drive · live deliveries'}
+            {state.mock
+              ? 'mock drive: nothing real is uploaded'
+              : !state.configured
+                ? ''
+                : state.storage === 'local'
+                  ? `local folder · ${state.settings.localRoot}`
+                  : 'google drive · live deliveries'}
           </span>
         </div>
         <div className="spacer" />

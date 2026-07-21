@@ -11,9 +11,10 @@
     "mock": "cross-env NEKU_MOCK=1 electron-vite dev",
     "shots": "cross-env NEKU_MOCK=1 NEKU_SHOT_DIR=shots NEKU_WATCH_DIR=shots/watch electron-vite dev",
     "shots:photo": "cross-env NEKU_MOCK=1 NEKU_PRESET=photo NEKU_SHOT_DIR=shots-photo NEKU_WATCH_DIR=shots-photo/watch electron-vite dev",
+    "shots:wizard": "cross-env NEKU_FORCE_SETUP=1 NEKU_WIZARD_DIR=shots-wizard/folder NEKU_SHOT_DIR=shots-wizard electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "test": "node --test tests/naming.test.mjs",
+    "test": "node --test tests/naming.test.mjs tests/storage-local.test.mjs",
     "dist": "electron-vite build && electron-builder --win portable"
   },
   "dependencies": {
