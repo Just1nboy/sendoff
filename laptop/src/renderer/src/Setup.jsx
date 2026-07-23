@@ -67,8 +67,8 @@ export default function Setup({ onSaved }) {
           <>
             <h2>Where should deliveries go?</h2>
             <p className="lede">
-              Sendoff renames your files and files them into a folder per client. This is where
-              that folder tree lives.
+              Sendoff files each delivery into a folder for the client. Pick where those
+              folders should live.
             </p>
 
             <button
@@ -161,8 +161,8 @@ export default function Setup({ onSaved }) {
           <>
             <h2>What do you deliver?</h2>
             <p className="lede">
-              This only sets the naming to start from. Every part of it is editable later in
-              settings, and nothing here is permanent.
+              This just picks the naming to start from. You can change any of it later in
+              settings.
             </p>
 
             {PRESETS.map((p) => (

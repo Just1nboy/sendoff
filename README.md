@@ -1,151 +1,120 @@
 # Sendoff
 
-**A two-surface delivery tool for freelancers.** Send a file from your phone or tablet,
-pair it with another one on the desktop, and both land renamed in a per-client folder that
-is shared back as a single link.
+A delivery tool for freelancers, split across two screens. Send a file from your phone,
+pair it with another one on the desktop, and both get renamed and filed into a folder for
+that client, shared back as a single link.
 
 ![The workbench: staged artwork on the left, packing slip on the right](docs/screenshots/workbench.png)
 
-Sendoff was built for one working sprite artist with a real, specific pipeline, then
-generalised without migrating him off it. His setup is still the default, and the
-`Batch 5` folders in these screenshots are his naming, not the app's.
-
----
+I built Sendoff for a friend who takes art commissions, so his workflow is the built-in
+default. The `Batch 5` folders you'll see in the screenshots come from his setup.
 
 ## Try it in one minute
 
-No account, no credentials, nothing to configure:
+No account, no credentials, nothing to set up:
 
 ```bash
 cd laptop
 npm install
-npm run mock      # the whole app against a fake Drive; nothing is uploaded
+npm run mock      # the whole app against a fake Drive
 ```
 
-To watch it drive itself through the entire flow and screenshot every step:
+`npm run shots` runs the same thing but clicks through the UI by itself and screenshots
+each step. To use it for real against a folder on your machine, run `npm run dev` and pick
+"A folder on this computer" on the first screen.
 
-```bash
-npm run shots     # writes to shots/, including a transcript in autopilot.log
-```
+## What it replaces
 
-Or run it for real against a plain folder on your computer (also no account):
-`npm run dev`, then pick **A folder on this computer** on the first screen.
+A commission artist draws on a tablet, animates in a browser tool, and sends the result to
+a client. By hand, that means AirDropping the drawing to the laptop, digging it out of
+Downloads, renaming it to the client's name, opening Drive in a browser, making a folder,
+dragging two files in, turning on sharing, copying the link, and pasting it into a DM. A
+handful of times a week, and any step can go wrong somewhere the client will see.
 
----
-
-## The problem
-
-A commission artist draws on a tablet, animates in a browser tool, and sends the finished
-pair to a client. Before Sendoff, every delivery meant: AirDrop or self-DM the drawing to the
-laptop, find it in Downloads, rename it by hand to the client's name, open the Drive web
-UI, make a folder, drag two files in, set sharing, copy the link, paste it into a DM. Once
-per client, several times a week, each step silently able to go wrong in a way the client
-sees.
-
-Sendoff is that sequence, minus the parts a person should not have to hold in their head.
+Sendoff does that whole run, from the two files to the finished link.
 
 ## The flow
 
-1. **Send from the tablet.** A one-screen PWA: pick the file, preview it, Send. It lands in
-   a Drive staging folder.
-2. **It appears on the light table.** The desktop app polls staging and shows it. If you are
-   looking at another window, a small always-on-top card tells you it arrived, with a real
-   preview so you can tell the right export from the wrong one.
-3. **Type the client's name.** Sendoff shows exactly what will be created before anything
-   uploads, and warns if that client already exists.
-4. **Drop the second file.** Or let Sendoff offer it: it watches your Downloads folder and
-   catches the file the moment it finishes downloading.
-5. **Deliver.** Folders, renames, upload, sharing, link. Five steps that stamp themselves,
-   then the link is on your clipboard.
+1. Send from the tablet. The PWA is one screen: pick the file, check the preview, hit Send.
+   It goes into a Drive staging folder.
+2. It shows up on the light table. The desktop app is already polling staging. If you're in
+   another window when it lands, a small card sits on top of that window to tell you, with a
+   preview so a wrong export gets caught before it goes anywhere.
+3. Type the client's name. You see the exact folder and filenames about to be created, and a
+   warning if that client already has a folder.
+4. Add the second file. Drop it on the window, or let Sendoff grab it: it watches Downloads
+   and offers the file the moment it finishes downloading.
+5. Deliver. Folders get made, files get renamed and uploaded, the client folder gets shared,
+   and the link is on your clipboard.
 
 ![The packing slip, previewing both files and the exact destination](docs/screenshots/packing-slip.png)
 ![The sealed delivery, with the link ready to copy](docs/screenshots/sealed.png)
 
----
+## Why a few things work the way they do
 
-## Design decisions worth explaining
+### There's no server
 
-These are the parts that took thought. Most of them are decisions *not* to do the obvious
-thing.
+The two halves never talk to each other. Each one holds its own OAuth token and talks to
+Drive, and Drive is the only thing they can both see. The receipt rides on the file itself:
+when the desktop picks up a staged file it writes a small property onto it, and the tablet
+reads that property back to show "the laptop has it." Nothing in the middle to run or pay
+for.
 
-### Drive itself is the sync layer. There is no backend.
+### Sharing is on the client folder, not the project above it
 
-Two surfaces need to agree on a file, and there is no server. Both apps hold their own
-OAuth token and talk to the Drive API directly, so the file itself carries the handshake:
-the desktop stamps `appProperties.nekuSeen` on a staged file as it appears on the light
-table, and the tablet reads that stamp back off the file it uploaded. That is how the
-tablet knows the laptop got it, with nothing in between to host, monitor, or pay for.
+If Sendoff shared the project folder, one client's link would show them everyone else in
+that batch. So it shares one level down, on the client's own folder. Revisions live in a
+subfolder of that folder for the same reason.
 
-### Only the client folder is ever shared
+### A repeat client is a revision
 
-Never the project folder. Sharing one level up would mean any client's link exposes every
-other client in that project. This is also why revisions are a subfolder rather than a
-sibling.
+When you type a name that already has a folder, Sendoff can't tell whether you mistyped an
+existing client or you're sending that client a new version. So it doesn't decide for you.
+It shows what it found and lets you choose: add the files to the folder, or make a revision.
+A revision is a subfolder (`v2`, `v3`), so it can't overwrite the first delivery, and the
+link you already sent still works with the new files inside it.
 
-### A repeat client is a revision, and the app refuses to guess
+The revision number gets settled before the upload starts rather than during it. That way,
+retrying a half-finished upload reuses the same number instead of stacking a `v3` next to
+the `v2` it already made.
 
-An existing client folder means one of two things. For the artist Sendoff was built for it is
-a typo, because he has no repeat clients. For everyone else it is v2. Sendoff shows what it
-found and offers both, with "add into that folder" as the default because that is what it
-has always done.
+### You see everything before it uploads
 
-Revisions go in a **subfolder** (`v2`, `v3`), never a filename suffix and never a second
-client folder. So no filename can collide, and **the link already sent to that client keeps
-working** and simply gains the new files.
+The destination and both filenames are on screen before the Deliver button does anything,
+and each file shows as an image where it can.
 
-![The choice offered when a client folder already exists](docs/screenshots/revision-choice.png)
+### The arrival card is a real window
 
-The revision number is resolved before the upload starts and passed in, not worked out
-during it. Otherwise hitting Retry after a partial failure would create a `v3` beside the
-`v2` it had already made.
+When a file lands you're usually looking at something else, so the notice has to sit on top
+of whatever that is. It's a small always-on-top window that appears without taking focus.
+One wrinkle: the card for a file off the tablet is hidden while Sendoff is the focused
+window, since the file is already on the light table in front of you. The card for a
+finished download is never hidden, because a download shows up nowhere in Sendoff by itself.
 
-### Preview before upload is a requirement, not a nicety
+### Nothing gets hard-deleted
 
-Nothing is ever sent that you have not seen. The destination is spelled out in full before
-the button is live, and both files are shown as images where they can be.
+The X on the light table sends the file to Drive's trash (or a `.sendoff-trash` folder in
+local mode) and asks first. The right file is usually one click from the wrong one, so a
+misclick should cost a trip to the trash, not the artwork.
 
-### The arrival notice is its own window
+### A failed upload is safe to retry
 
-Not a Windows notification, not an in-app banner. Both cases where Sendoff wants attention are
-cases where you are looking at something *else*, so it has to be a real always-on-top
-window, and it uses `showInactive()` so it never steals focus.
+If an upload dies partway, retrying picks up where it left off. A folder that already exists
+is reused, a file that already moved is left alone, and your typed name and attached file
+stay put.
 
-The two arrivals are deliberately asymmetric. The card is suppressed when Sendoff is focused
-for a file off the tablet, because it lands on the light table right in front of you and a
-card repeating that is noise. It is **not** suppressed for a finished download, because a
-downloaded file appears nowhere in Sendoff by itself, so it can never be redundant.
+### Names come from templates
 
-![The corner notice, with a preview of what arrived](docs/screenshots/corner-notice.png)
-
-### Deleting is always recoverable
-
-The X on the light table trashes the Drive file rather than hard-deleting it, and asks
-first. In local-folder mode it moves to a `.sendoff-trash` folder. The wrong file and the
-right file are one click apart, so the cost of a mistake has to be a trip to the trash, not
-the artwork.
-
-### Retry after a partial failure is safe
-
-Uploads fail halfway. The delivery pipeline re-checks what already happened instead of
-repeating it: a folder that exists is reused, a file already moved is left alone, and the
-typed name and attached file stay put.
-
-### Every name comes from a template
-
-Nothing in the app writes a folder or file name from a constant. Five settings drive all of
-it, with tokens `{client} {project} {n} {date} {name} {ext}`. Presets are just prefilled
-sets of those strings, so supporting a new trade is a data change, not a code change.
-
-An unknown token is left visible rather than blanked, so a typo shows up in the preview as
-literal `{cleint}` instead of silently producing `_sprite.png`.
+No folder or file name is hardcoded. Five settings drive all of them, using tokens like
+`{client}`, `{project}`, `{n}`, `{date}`, `{name}`, and `{ext}`. The presets are filled-in
+sets of those, so adding a trade is editing text instead of code. A token you misspell shows
+up in the preview as a literal `{cleint}`, so you catch it before it ships.
 
 ![The naming settings, with a live preview of what the templates produce](docs/screenshots/naming-settings.png)
 
-Same app, same code path, a photographer's naming:
+The same code under a photographer's naming:
 
 ![The same flow under the photo preset](docs/screenshots/photo-preset.png)
-
----
 
 ## Architecture
 
@@ -164,8 +133,8 @@ laptop/     Electron + React via electron-vite
   src/renderer/src/     the workbench UI
 ```
 
-Three storage backends export identical shapes, so `ops()` picks one and nothing above it
-knows which is live. Adding a backend does not touch the UI.
+The three storage backends export the same functions, so `ops()` picks one and nothing above
+it has to care which. Adding a backend doesn't touch the UI.
 
 ```bash
 npm run dev            # the real app
@@ -177,50 +146,46 @@ npm run shots:wizard   # first-run wizard, into a real local delivery
 npm run dist           # portable .exe
 ```
 
-## How this is tested
+## Tests
 
-An Electron app that talks to Google Drive is awkward to test honestly, so the verification
-is split by what can be checked for real:
+Testing an Electron app that talks to Google Drive without a lot of hand-waving means
+splitting the work up:
 
-- **`npm test`** covers the naming engine and the local-folder backend. `storage-local.js`
-  imports no Electron, so those tests drive it against a real temp directory and assert on
-  files that genuinely exist, including that a revision leaves v1 untouched and that a
-  retry after a partial failure does not throw.
-- **`npm run shots`** is a self-driving run against the mock backend. It walks the entire
-  flow, asserts against the real DOM at each step, and fails loudly with a transcript. It
-  covers the parts that only exist as UI: the corner notice, the discard confirmation, the
-  cross-project typo warning, switching projects.
-- **`npm run shots:photo`** runs that same script under a different trade's naming, which
-  is what proves the pipeline is not tied to one set of names. Every expected folder name is
-  derived from the naming the app booted with.
-- **`npm run shots:wizard`** stubs the native folder picker, walks the first-run wizard, and
-  then checks that a project folder actually appeared on disk.
+- `npm test` runs the naming engine and the local-folder backend. `storage-local.js` has no
+  Electron in it, so the tests run it against a real temp folder and check the files that
+  land on disk, including that a revision leaves `v1` alone and that a retry doesn't throw.
+- `npm run shots` runs against the mock backend and clicks through the whole app itself,
+  checking the DOM at each step and dumping a transcript when something's off. It's how the
+  UI-only pieces get covered: the arrival card, the discard prompt, the typo warning,
+  switching projects.
+- `npm run shots:photo` is the same run under a different trade's naming, so anything
+  accidentally tied to one set of names would break here.
+- `npm run shots:wizard` stubs the folder picker, walks the first-run wizard, and checks
+  that a project folder actually shows up on disk.
 
-The screenshots in this README are all generated by those runs.
-
----
+Every screenshot in this README comes out of those runs.
 
 ## Setup
 
-**Local folder mode** needs nothing. Run it and pick a folder.
+Local-folder mode needs nothing. Run it and pick a folder.
 
 ![The first screen](docs/screenshots/first-run.png)
 
-**Google Drive mode** needs a one-time Google Cloud setup, covered in
-[SETUP.md](SETUP.md): one Cloud project, a Desktop OAuth client for the laptop and a Web
-one for the tablet. [HANDOFF.md](HANDOFF.md) is the other side of that, written for the
-person receiving a prepared build: two installs, no terminal, no configuration.
+Google Drive mode needs a one-time Google Cloud setup, written up in [SETUP.md](SETUP.md):
+one Cloud project, a Desktop OAuth client for the laptop and a Web one for the tablet.
+[HANDOFF.md](HANDOFF.md) is the short version for whoever you hand a finished build to: two
+installs, no terminal.
 
-Scope is `drive.file` on purpose, which means Sendoff only ever sees files it created itself.
-It keeps the "unverified app" friction near zero and means installing it grants no access
-to the rest of your Drive.
+The scope is `drive.file`, so Sendoff only ever sees files it created itself. That keeps the
+"unverified app" warning small and means installing it doesn't hand over the rest of your
+Drive.
 
-## Known limitations
+## Known limits
 
-- Local-folder mode cannot share, because a folder on your computer has no link. Point it
-  at a synced folder and whatever syncs it handles sharing.
-- The tablet handshake is Drive-only for the same reason: nothing else polls a local folder.
-- `drive.file` scope means folders created by hand before Sendoff are invisible to it.
-- Tablet sign-in tokens last about an hour and are re-acquired silently, which can briefly
-  flash a Google popup.
-- Sending the client message is still manual, on purpose.
+- Local-folder mode can't share, since a folder on your computer has no link. Put it inside a
+  synced folder and whatever syncs it handles the sharing.
+- The tablet handshake only works on Drive, for the same reason.
+- `drive.file` scope hides any folder you made by hand before Sendoff.
+- Tablet sign-ins last about an hour and refresh on their own, which can flash a Google popup
+  for a moment.
+- You still send the client the link yourself.

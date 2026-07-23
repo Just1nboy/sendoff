@@ -144,8 +144,8 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
           />
           {errors.attachedTemplate && <div className="errbox">{errors.attachedTemplate}</div>}
           <div className="note">
-            A fixed name like <code>bouncy.gif</code> is fine: the per-client folder is what keeps
-            deliveries apart, not the file name.
+            A fixed name like <code>bouncy.gif</code> works too. The client folder is what keeps
+            deliveries apart, so the filename doesn&rsquo;t have to be unique.
           </div>
         </div>
 
