@@ -6,10 +6,10 @@ setup below once, on **your** Google account, then hand him two things:
 1. a **link** (the tablet app), and
 2. an **exe** (the laptop app), plus [HANDOFF.md](HANDOFF.md), written for him.
 
-How this works: the Google Cloud project is just the *app's identity* ("Sendoff wants access
-to…"). Your friend signs in with **his** Google account inside the apps, so everything
-lands in **his** Drive. Nothing of his routes through your account, and you never see his
-files. This is the same model every Drive-connected desktop app uses.
+How it works: the Cloud project is just the app's identity, the "Sendoff wants access to…"
+name your friend sees on the sign-in screen. He signs in with **his** own Google account
+inside the apps, so his files land in **his** Drive and never touch your account. It's the
+same setup any Drive-connected desktop app uses.
 
 ---
 
@@ -68,7 +68,7 @@ files. This is the same model every Drive-connected desktop app uses.
 4. Open the URL yourself. With `config.js` filled it must go **straight to the upload
    screen**, no setup questions. That link is deliverable #1.
 
-Changed something later? Edit locally, re-drop the folder. That's the whole deploy story.
+To change it later, edit locally and re-drop the folder. That's the whole deploy.
 
 ---
 

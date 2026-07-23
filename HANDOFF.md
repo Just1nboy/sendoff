@@ -34,7 +34,7 @@ for you, not a store app. You'll only see that once.
 
 ## Daily use
 
-1. Sendoff opens by asking **which batch**. Tap the batch you're already working through, or
+1. Sendoff opens on your **batch list**. Tap the batch you're already working through, or
    hit **Start Batch N** to begin a new one. It remembers your answer, so you only pick
    once per batch, even if you close the app halfway through. The first one it offers is
    **Batch 5**, picking up after the four you already did by hand (it can only see folders
@@ -49,7 +49,7 @@ for you, not a store app. You'll only see that once.
    the animation playing in it. Hit **Use it** and the gif is attached, no dragging, no
    hunting for the window. (Dragging it from Downloads still works if you'd rather.)
 4. **Deliver to Drive** → wait for the checkmarks → **Copy link** → paste into the
-   client's Twitter DM. Hit **Next commission** for the following one; it stays in the
+   client's Twitter DM. Hit **Next delivery** for the following one; it stays in the
    same batch, so you just keep going.
 
 Sendoff renames everything itself (`Name_sprite.png` + `bouncy.gif`) and files it under
