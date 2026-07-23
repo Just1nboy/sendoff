@@ -1,5 +1,5 @@
 /* Drives the mock-mode UI end-to-end and captures window screenshots.
-   Only runs when NEKU_SHOT_DIR is set (npm run shots). Used to verify the
+   Only runs when SENDOFF_SHOT_DIR is set (npm run shots). Used to verify the
    real renderer + IPC + mock-drive pipeline without Google credentials. */
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -14,7 +14,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /**
  * @param naming the templates the app booted with. The run asserts against the
  *   names those produce rather than against "Batch 5"/"Batch 6", so the same
- *   script verifies the flow under any preset (see NEKU_PRESET).
+ *   script verifies the flow under any preset (see SENDOFF_PRESET).
  */
 export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await fs.mkdir(dir, { recursive: true });
@@ -55,12 +55,12 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
 
   /* ---- the first-run wizard, all the way into a working local delivery ----
 
-     NEKU_WIZARD_DIR is the folder the (native, modal) folder picker is stubbed to
+     SENDOFF_WIZARD_DIR is the folder the (native, modal) folder picker is stubbed to
      return. This is the only check that exercises the local-folder backend
      through the real UI and IPC rather than as a library, so it is what proves
-     someone can install Neku with no Google account at all and deliver. */
-  if (process.env.NEKU_WIZARD_DIR) {
-    const chosenDir = path.resolve(process.env.NEKU_WIZARD_DIR);
+     someone can install Sendoff with no Google account at all and deliver. */
+  if (process.env.SENDOFF_WIZARD_DIR) {
+    const chosenDir = path.resolve(process.env.SENDOFF_WIZARD_DIR);
     await fs.mkdir(chosenDir, { recursive: true });
     await sleep(1800);
 
@@ -138,7 +138,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     const heading = await js(`(document.querySelector('.panel h2') || {}).textContent || ''`);
     log(`[autopilot] cold boot screen: "${heading}"`);
     await shot('cold-boot.png');
-    const expected = process.env.NEKU_COLD_EXPECT;
+    const expected = process.env.SENDOFF_COLD_EXPECT;
     if (expected && heading !== expected) {
       throw new Error(`expected cold boot screen "${expected}", got "${heading}"`);
     }
@@ -149,7 +149,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
 
   // day one on the friend's machine: no projects exist yet, so the menu must offer
   // to start at Batch 5 rather than Batch 1 (he already did four by hand)
-  if (process.env.NEKU_MOCK_EMPTY === '1') {
+  if (process.env.SENDOFF_MOCK_EMPTY === '1') {
     await sleep(2200);
     const rows = await js(`document.querySelectorAll('.project-menu .project-row').length`);
     const cta = await js(
@@ -183,7 +183,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await shot('0-projects.png');
 
   // start the next project and land in the workbench inside it
-  await js(`window.__nekuProjectTest.startNew()`);
+  await js(`window.__sendoffProjectTest.startNew()`);
   await sleep(1600);
   const chip = await js(
     `(document.querySelector('.bar .project-chip') || {}).textContent || ''`
@@ -233,7 +233,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
        fallback (resources/mock-sprite.png is not inside the asar), and a fixed
        byte floor would fail there on the fixture instead of on the feature. */
     const sourceBytes = await js(
-      `window.neku.getFileBytes('mock-sprite-1').then((r) => (r.ok ? r.data.length : -1))`
+      `window.sendoff.getFileBytes('mock-sprite-1').then((r) => (r.ok ? r.data.length : -1))`
     );
     log(
       `[autopilot] saved sprite: offered "${offeredName}", ${bytes} of ${sourceBytes} bytes,` +
@@ -255,11 +255,11 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
 
   /* ---- a sprite arriving from the tablet ----
-     The card only earns its keep when he is NOT looking at Neku, and it is
+     The card only earns its keep when he is NOT looking at Sendoff, and it is
      deliberately suppressed when he is, so the window has to be blurred here or
      the test would be checking the wrong branch. */
   /* blur() alone is a request, not a guarantee: on Windows, with no other window
-     for the OS to hand focus to, Neku can simply stay focused and the card is
+     for the OS to hand focus to, Sendoff can simply stay focused and the card is
      then correctly suppressed, failing the test for the wrong reason. Hiding is
      the one state the window cannot be focused in, and "Show me" brings it back
      the same way it would from the tray. */
@@ -275,7 +275,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
 
   seedStaged({ id: 'mock-sprite-arrival', name: 'kaito_final.png' });
-  await js(`window.__nekuTest.refresh()`);
+  await js(`window.__sendoffTest.refresh()`);
 
   let arrivalCard = null;
   const arrivalDeadline = Date.now() + 12000;
@@ -307,15 +307,15 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await fs.writeFile(path.join(dir, '1b-sprite-notice.png'), arrivalShot.toPNG());
   log('[autopilot] wrote 1b-sprite-notice.png');
 
-  // the primary button's whole job is to put Neku back in front of him
+  // the primary button's whole job is to put Sendoff back in front of him
   await arrivalJs(`document.getElementById('btn-use').click()`);
   await sleep(800);
-  log(`[autopilot] Neku focused after "Show me": ${win.isFocused()}`);
-  if (!win.isFocused()) throw new Error('"Show me" did not bring Neku forward');
+  log(`[autopilot] Sendoff focused after "Show me": ${win.isFocused()}`);
+  if (!win.isFocused()) throw new Error('"Show me" did not bring Sendoff forward');
 
   // put staging back to one sprite so the rest of the run is unchanged
   await discardStaged(null, 'mock-sprite-arrival');
-  await js(`window.__nekuTest.refresh()`);
+  await js(`window.__sendoffTest.refresh()`);
   await sleep(600);
 
   /* ---- taking a wrong sprite back off the table ----
@@ -346,21 +346,21 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     throw new Error(`"Keep it" lost the sprite, table shows "${keptName}"`);
   }
 
-  await js(`window.__nekuTest.setName('Aiko')`);
+  await js(`window.__sendoffTest.setName('Aiko')`);
   await sleep(1200); // folder-exists debounce
 
   /* ---- the gif arriving in Downloads ----
-     He animates in the browser with Neku behind it, so the whole point is that
-     the offer reaches him over there. NEKU_WATCH_DIR keeps this test out of the
+     He animates in the browser with Sendoff behind it, so the whole point is that
+     the offer reaches him over there. SENDOFF_WATCH_DIR keeps this test out of the
      real Downloads folder; with no safe folder to drop into, attach one directly
      instead and leave the watcher untested rather than litter his downloads. */
-  const watchDir = process.env.NEKU_WATCH_DIR;
+  const watchDir = process.env.SENDOFF_WATCH_DIR;
   if (watchDir) {
     const gifName = 'ezgif-4-b2a91c.gif';
     await fs.mkdir(path.resolve(watchDir), { recursive: true });
     await fs.writeFile(path.join(path.resolve(watchDir), gifName), makeBouncyGif());
 
-    // Neku's own notice window, not a Windows toast, so it is a window we can find
+    // Sendoff's own notice window, not a Windows toast, so it is a window we can find
     let notice = null;
     const noticeDeadline = Date.now() + 12000;
     while (Date.now() < noticeDeadline) {
@@ -386,7 +386,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     log('[autopilot] wrote 2a-notice.png');
 
     // the packing slip must also carry the offer, for when the notice times out
-    const strip = await js(`window.__nekuTest.foundGif()`);
+    const strip = await js(`window.__sendoffTest.foundGif()`);
     log(`[autopilot] packing-slip fallback offer: "${strip}"`);
     if (strip !== gifName) {
       throw new Error(`packing slip did not offer the found gif, saw "${strip}"`);
@@ -396,7 +396,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     let attached = '';
     const attachDeadline = Date.now() + 8000;
     while (Date.now() < attachDeadline) {
-      attached = await js(`window.__nekuTest.gifName()`);
+      attached = await js(`window.__sendoffTest.gifName()`);
       if (attached) break;
       await sleep(200);
     }
@@ -405,10 +405,10 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
       throw new Error(`"Use it" did not attach the gif, packing slip holds "${attached}"`);
     }
     // taken: the offer must not linger into the next commission
-    const cleared = await js(`window.__nekuTest.foundGif()`);
+    const cleared = await js(`window.__sendoffTest.foundGif()`);
     if (cleared) throw new Error(`found-gif offer still showing "${cleared}" after use`);
   } else {
-    await js(`window.__nekuTest.setGif()`);
+    await js(`window.__sendoffTest.setGif()`);
   }
   await sleep(500);
 
@@ -422,13 +422,13 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
   await shot('2-packed.png');
 
-  log('[autopilot] pre-deliver probe:', await js(`window.__nekuTest.probe()`));
-  await js(`window.__nekuTest.deliver()`);
-  log('[autopilot] post-deliver probe:', await js(`window.__nekuTest.probe()`));
+  log('[autopilot] pre-deliver probe:', await js(`window.__sendoffTest.probe()`));
+  await js(`window.__sendoffTest.deliver()`);
+  log('[autopilot] post-deliver probe:', await js(`window.__sendoffTest.probe()`));
   const deadline = Date.now() + 20000;
   let finished = false;
   while (Date.now() < deadline) {
-    const phase = await js(`window.__nekuTest.phase()`);
+    const phase = await js(`window.__sendoffTest.phase()`);
     if (phase === 'done') {
       finished = true;
       break;
@@ -440,7 +440,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     await sleep(300);
   }
   if (!finished) {
-    log('[autopilot] timeout probe:', await js(`window.__nekuTest.probe()`));
+    log('[autopilot] timeout probe:', await js(`window.__sendoffTest.probe()`));
     await shot('x-timeout.png');
     throw new Error('deliver never reached done state');
   }
@@ -468,7 +468,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
 
   const history = JSON.parse(
-    await js(`window.neku.getHistory().then((r) => JSON.stringify(r))`)
+    await js(`window.sendoff.getHistory().then((r) => JSON.stringify(r))`)
   );
   const latest = history.ok && history.data[0];
   log(
@@ -509,7 +509,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await js(`document.querySelector('.sealed .btn.ghost').click()`); // next commission
   await sleep(500);
   // this client lives in the seeded project while we are working in the open one
-  await js(`window.__nekuTest.setName('OldClientFromMarch')`);
+  await js(`window.__sendoffTest.setName('OldClientFromMarch')`);
   await sleep(1500); // debounce + mock latency
   const warn = await js(
     `(document.querySelector('.zone-right .warnstrip') || {}).textContent || ''`
@@ -544,10 +544,10 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   await sleep(300);
 
   seedStaged({ id: 'mock-sprite-rev', name: 'oldclient_v2.png' });
-  await js(`window.__nekuTest.refresh()`);
+  await js(`window.__sendoffTest.refresh()`);
   await sleep(900);
-  await js(`window.__nekuTest.pick('mock-sprite-rev')`);
-  await js(`window.__nekuTest.setGif()`);
+  await js(`window.__sendoffTest.pick('mock-sprite-rev')`);
+  await js(`window.__sendoffTest.setGif()`);
   await sleep(700);
 
   // only once both slots are full does the button carry the delivery's name
@@ -559,11 +559,11 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     throw new Error(`deliver button should name the revision, said "${cta}"`);
   }
 
-  await js(`window.__nekuTest.deliver()`);
+  await js(`window.__sendoffTest.deliver()`);
   let revPhase = '';
   const revDeadline = Date.now() + 20000;
   while (Date.now() < revDeadline) {
-    revPhase = await js(`window.__nekuTest.phase()`);
+    revPhase = await js(`window.__sendoffTest.phase()`);
     if (revPhase === 'done' || revPhase === 'error') break;
     await sleep(300);
   }
@@ -587,7 +587,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
      what is already in Drive, so a second revision cannot overwrite the first */
   await js(`document.querySelector('.sealed .btn.ghost').click()`);
   await sleep(500);
-  await js(`window.__nekuTest.setName('OldClientFromMarch')`);
+  await js(`window.__sendoffTest.setName('OldClientFromMarch')`);
   await sleep(1500);
   const secondOffer = await js(
     `(document.querySelectorAll('.zone-right .choice-row .btn')[1] || {}).textContent || ''`
@@ -599,7 +599,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
   }
 
   // ---- switching back to an earlier project ----
-  await js(`window.__nekuTest.setName('')`);
+  await js(`window.__sendoffTest.setName('')`);
   await js(`document.querySelector('.bar .project-chip').click()`);
   await sleep(1400);
   const rows = await js(`document.querySelectorAll('.project-menu .project-row').length`);
@@ -622,7 +622,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
      Its own sprite, because this path destroys what it acts on. Staging is empty
      by now, so the one seeded here is the only thing on the table. */
   seedStaged({ id: 'mock-sprite-wrong', name: 'wrong_upload.png' });
-  await js(`window.__nekuTest.refresh()`);
+  await js(`window.__sendoffTest.refresh()`);
   let onTable = '';
   const seedDeadline = Date.now() + 8000;
   while (Date.now() < seedDeadline) {
@@ -645,7 +645,7 @@ export async function runAutopilot(win, dir, mock = true, namingIn = null) {
     await sleep(250);
   }
   const stillStaged = await js(
-    `window.neku.listStaging().then((r) => (r.ok ? r.data.files.length : -1))`
+    `window.sendoff.listStaging().then((r) => (r.ok ? r.data.files.length : -1))`
   );
   log(`[autopilot] after Remove: table cleared ${cleared}, ${stillStaged} left in staging`);
   if (!cleared) throw new Error('Remove left the sprite on the light table');

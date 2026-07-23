@@ -70,7 +70,7 @@ export default function PackingSlip({
   const failed = delivery && delivery.phase === 'error';
 
   async function copyLink() {
-    await window.neku.copyText(delivery.result.link);
+    await window.sendoff.copyText(delivery.result.link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -111,7 +111,7 @@ export default function PackingSlip({
             </button>
             <button
               className="btn"
-              onClick={() => (r.isPath ? window.neku.openFolder(r.link) : window.neku.openLink(r.link))}
+              onClick={() => (r.isPath ? window.sendoff.openFolder(r.link) : window.sendoff.openLink(r.link))}
             >
               {r.isPath ? 'Open folder' : 'Open in Drive'}
             </button>
@@ -161,7 +161,7 @@ export default function PackingSlip({
 
         {/* The hit is either a typo or a revision and the app cannot know which,
             so it says what it found and offers both. Adding into the folder stays
-            the default: it is what Neku has always done. */}
+            the default: it is what Sendoff has always done. */}
         {folderExists && (
           <div className="warnstrip">
             <div>

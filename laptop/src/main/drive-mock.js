@@ -1,4 +1,4 @@
-/* In-memory stand-in for drive.js, active when NEKU_MOCK=1.
+/* In-memory stand-in for drive.js, active when SENDOFF_MOCK=1.
    Lets the whole UI flow run (staging list, preview, deliver, link) with no
    Google credentials. Same function shapes as drive.js. */
 import fs from 'node:fs';
@@ -23,15 +23,15 @@ const FALLBACK_PNG = Buffer.from(
   'base64'
 );
 
-/* NEKU_MOCK_EMPTY=1 wipes the seeded project so the day-one screen
+/* SENDOFF_MOCK_EMPTY=1 wipes the seeded project so the day-one screen
    ("no projects yet" -> Start Batch 5) can be driven and screenshotted. */
-const EMPTY = process.env.NEKU_MOCK_EMPTY === '1';
+const EMPTY = process.env.SENDOFF_MOCK_EMPTY === '1';
 
 /* The seeded project has to be named by whatever naming is active, or a run under
    a different preset would start with a folder its own template cannot parse and
-   the menu would look empty. NEKU_PRESET picks one; see index.js. */
+   the menu would look empty. SENDOFF_PRESET picks one; see index.js. */
 const MOCK_NAMING = resolveNaming(
-  (presetById(process.env.NEKU_PRESET || '') || {}).naming
+  (presetById(process.env.SENDOFF_PRESET || '') || {}).naming
 );
 const SEEDED_NUMBER = MOCK_NAMING.firstProjectNumber;
 const SEEDED_NAME = projectFolderName(MOCK_NAMING.projectTemplate, SEEDED_NUMBER);
@@ -107,6 +107,7 @@ export async function listStaging() {
   return { stagingId: 'mock-staging', files: state.staged.map((f) => ({ ...f })) };
 }
 
+// wire key shared with the deployed tablet (see drive.js) — keep in sync
 export const SEEN_KEY = 'nekuSeen';
 
 export async function markStagedSeen(_drive, files) {

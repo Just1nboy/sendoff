@@ -1,4 +1,4 @@
-/* The corner notice: Neku's own notification, not a Windows one.
+/* The corner notice: Sendoff's own notification, not a Windows one.
 
    Two things need to reach him while he is looking at something else: the gif
    finishing its download (he is in the browser), and a sprite arriving from the

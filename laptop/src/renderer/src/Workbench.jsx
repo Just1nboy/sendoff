@@ -41,7 +41,7 @@ async function spriteBlob(selection, previewCache) {
       /* fall through to a fresh download */
     }
   }
-  const res = await window.neku.getFileBytes(selection.id);
+  const res = await window.sendoff.getFileBytes(selection.id);
   if (!res.ok) return null;
   return new Blob([new Uint8Array(res.data)], { type: 'image/png' });
 }
@@ -87,7 +87,7 @@ export default function Workbench({ state }) {
   const [asRevision, setAsRevision] = useState(false); // deliver into v2/v3 instead
   const [clients, setClients] = useState([]); // everyone delivered to before
   const [gif, setGif] = useState(null); // { file, url }
-  const [foundGif, setFoundGif] = useState(null); // gif Neku saw land in Downloads
+  const [foundGif, setFoundGif] = useState(null); // gif Sendoff saw land in Downloads
   const [delivery, setDelivery] = useState(null); // null|{phase:'run',step}|{phase:'done',result}|{phase:'error',...}
   const [dropFlash, setDropFlash] = useState(null);
 
@@ -105,7 +105,7 @@ export default function Workbench({ state }) {
     // deliveryRef mirrors state on render, so callers inside the deliver
     // flow itself must force past the poll guard
     if (!force && deliveryRef.current && deliveryRef.current.phase === 'run') return;
-    const res = await window.neku.listStaging();
+    const res = await window.sendoff.listStaging();
     if (!res.ok) {
       setStaging((s) => ({ ...s, loading: false, error: res.message, authLost: res.code === 'auth' }));
       return;
@@ -123,7 +123,7 @@ export default function Workbench({ state }) {
     } else {
       const arrived = files.filter((f) => !knownStaged.current.has(f.id));
       knownStaged.current = new Set(ids);
-      if (arrived.length > 0) window.neku.announceSprite(arrived[0]);
+      if (arrived.length > 0) window.sendoff.announceSprite(arrived[0]);
     }
 
     setSelection((sel) => {
@@ -158,7 +158,7 @@ export default function Workbench({ state }) {
   /* ---------- an existing client folder ----------
      Looks across every project, not just this one. The hit means one of two
      things and the app cannot tell which, so it does not guess: for the artist
-     Neku was built for it is a typo (he has no repeat clients), and for everyone
+     Sendoff was built for it is a typo (he has no repeat clients), and for everyone
      else it is a revision. Both are offered; delivering into the existing folder
      stays the default, so his flow is unchanged unless he picks otherwise. */
 
@@ -168,7 +168,7 @@ export default function Workbench({ state }) {
     const name = clientName.trim();
     if (!name) return undefined;
     const timer = setTimeout(async () => {
-      const res = await window.neku.checkClientFolder(name);
+      const res = await window.sendoff.checkClientFolder(name);
       if (res.ok && res.data.exists) {
         setFolderExists({
           projectName: res.data.projectName,
@@ -181,7 +181,7 @@ export default function Workbench({ state }) {
 
   // names he has delivered to before, so he can pick instead of retyping
   useEffect(() => {
-    window.neku.listClients().then((res) => {
+    window.sendoff.listClients().then((res) => {
       if (res.ok) setClients(res.data);
     });
   }, [delivery]);
@@ -208,7 +208,7 @@ export default function Workbench({ state }) {
     setDropFlash(null);
   }, []);
 
-  /* ---------- the gif Neku spotted in Downloads ----------
+  /* ---------- the gif Sendoff spotted in Downloads ----------
      Main only hands over metadata, so the bytes are fetched at the moment he
      accepts. Wrapping them in a File keeps every downstream path (preview,
      swap, deliver) identical to a dragged one. */
@@ -216,7 +216,7 @@ export default function Workbench({ state }) {
   const useFoundGif = useCallback(
     async (info) => {
       if (!info) return;
-      const res = await window.neku.readGif(info.path);
+      const res = await window.sendoff.readGif(info.path);
       if (!res.ok) {
         setFoundGif(null);
         setDropFlash(res.message);
@@ -230,16 +230,16 @@ export default function Workbench({ state }) {
 
   // an offer is pointless once a gif is in the slot, so main can skip the notice
   useEffect(() => {
-    window.neku.setGifAttached(Boolean(gif));
+    window.sendoff.setGifAttached(Boolean(gif));
   }, [gif]);
 
   useEffect(() => {
     // covers the gap between main spotting one and this listener existing
-    window.neku.getLatestGif().then((res) => {
+    window.sendoff.getLatestGif().then((res) => {
       if (res.ok && res.data) setFoundGif(res.data);
     });
-    const offFound = window.neku.onGifFound((g) => setFoundGif(g));
-    const offUse = window.neku.onGifUse((g) => useFoundGif(g));
+    const offFound = window.sendoff.onGifFound((g) => setFoundGif(g));
+    const offUse = window.sendoff.onGifUse((g) => useFoundGif(g));
     return () => {
       offFound();
       offUse();
@@ -255,7 +255,7 @@ export default function Workbench({ state }) {
       setSelection(null);
       return null;
     }
-    const res = await window.neku.discardStaged(selection.id);
+    const res = await window.sendoff.discardStaged(selection.id);
     if (!res.ok) return res.message;
     setSelection(null);
     refreshStaging(true);
@@ -324,7 +324,7 @@ export default function Workbench({ state }) {
   const runDeliver = useCallback(async () => {
     if (!selection || !gif) return;
     setDelivery({ phase: 'run', step: 'folders' });
-    const unsub = window.neku.onDeliverStep((step) =>
+    const unsub = window.sendoff.onDeliverStep((step) =>
       setDelivery((d) => (d && d.phase === 'run' ? { phase: 'run', step } : d))
     );
     try {
@@ -346,7 +346,7 @@ export default function Workbench({ state }) {
                 bytes: new Uint8Array(await selection.file.arrayBuffer()),
               },
       };
-      const res = await window.neku.deliver(payload);
+      const res = await window.sendoff.deliver(payload);
       if (res.ok) {
         setDelivery({ phase: 'done', result: res.data });
         refreshStaging(true);
@@ -376,7 +376,7 @@ export default function Workbench({ state }) {
   }, [refreshStaging]);
 
   const reconnect = useCallback(async () => {
-    const res = await window.neku.login();
+    const res = await window.sendoff.login();
     if (res.ok) {
       setDelivery(null);
       refreshStaging();
@@ -387,16 +387,16 @@ export default function Workbench({ state }) {
 
   useEffect(() => {
     if (!state.mock) return undefined;
-    window.__nekuTest = {
+    window.__sendoffTest = {
       setName: (n) => setClientName(n),
       setGif: async () => {
-        const res = await window.neku.getFileBytes('mock-sprite-1');
+        const res = await window.sendoff.getFileBytes('mock-sprite-1');
         if (res.ok) {
           attachGif(new File([new Uint8Array(res.data)], 'ezgif-4-b2a91c.gif', { type: 'image/gif' }));
         }
       },
       deliver: () => {
-        window.__nekuDeliverCalls = (window.__nekuDeliverCalls || 0) + 1;
+        window.__sendoffDeliverCalls = (window.__sendoffDeliverCalls || 0) + 1;
         return runDeliver();
       },
       phase: () => (deliveryRef.current ? deliveryRef.current.phase : 'idle'),
@@ -416,7 +416,7 @@ export default function Workbench({ state }) {
           name: clientName,
           project: state.project.name,
           phase: deliveryRef.current ? deliveryRef.current.phase : 'idle',
-          calls: window.__nekuDeliverCalls || 0,
+          calls: window.__sendoffDeliverCalls || 0,
         }),
     };
   });

@@ -1,4 +1,4 @@
-/* Neku laptop: same design tokens as tablet/styles.css, desktop workbench layout. */
+/* Sendoff laptop: same design tokens as tablet/styles.css, desktop workbench layout. */
 
 :root {
   /* three colours and nothing else: black, white, orange. Red only for failures. */
@@ -321,7 +321,7 @@ body {
 }
 .gif-slot .swap { position: absolute; top: 8px; right: 8px; }
 
-/* the gif Neku watched land in Downloads. The corner notice does the asking;
+/* the gif Sendoff watched land in Downloads. The corner notice does the asking;
    this is the trail it leaves behind for when that notice timed out. */
 .foundgif {
   margin-top: 8px;

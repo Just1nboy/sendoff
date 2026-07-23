@@ -2,14 +2,14 @@
 
    Same function shapes as drive.js, so index.js can swap between them without
    knowing which is in use. This is a real backend, not a mock: files genuinely
-   land on disk, and it is what makes Neku runnable with no Google account, no
+   land on disk, and it is what makes Sendoff runnable with no Google account, no
    Cloud project and no OAuth client at all.
 
    What it deliberately does NOT do is share. There is no link to hand a client,
    so `deliver` returns the folder's path and the UI offers to open it. Point the
    base folder at a synced one (Drive, Dropbox, OneDrive) and that folder is
    shareable by whatever already syncs it, which is also how the tablet's files
-   can still reach the staging folder without Neku talking to any API. */
+   can still reach the staging folder without Sendoff talking to any API. */
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
@@ -28,7 +28,7 @@ import {
 /* Where a discarded file goes. Never a real delete: the whole point of the X on
    the light table is that hitting it by mistake costs a trip to this folder
    rather than the artwork itself. Mirrors Drive's trash. */
-const TRASH_DIR = '.neku-trash';
+const TRASH_DIR = '.sendoff-trash';
 
 let baseDir = null;
 
@@ -167,6 +167,7 @@ export async function listStaging(handle, stagingName) {
   };
 }
 
+// wire key shared with the deployed tablet (see drive.js) — keep in sync
 export const SEEN_KEY = 'nekuSeen';
 
 /* Drive stamps staged files so the tablet can tell they were picked up. A local
@@ -175,7 +176,7 @@ export async function markStagedSeen() {
   return [];
 }
 
-/** Move to .neku-trash rather than unlink: recoverable, like Drive's trash. */
+/** Move to .sendoff-trash rather than unlink: recoverable, like Drive's trash. */
 export async function discardStaged(handle, fileId) {
   const trash = path.join(handle.dir, TRASH_DIR);
   await fs.mkdir(trash, { recursive: true });
@@ -221,7 +222,7 @@ export async function checkClientFolder(handle, rootName, clientName, namingIn) 
 /** Write bytes only once the whole file is there, so a crash mid-write cannot
     leave a half-file wearing the final name. */
 async function writeFileAtomic(target, bytes) {
-  const tmp = `${target}.neku-part`;
+  const tmp = `${target}.sendoff-part`;
   await fs.writeFile(tmp, bytes);
   await fs.rename(tmp, target);
 }

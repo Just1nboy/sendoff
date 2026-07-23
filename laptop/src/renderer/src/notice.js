@@ -44,15 +44,15 @@ document.getElementById('name').title = name;
 document.getElementById('size').textContent = fmtSize(size);
 
 document.getElementById('btn-use').addEventListener('click', () => {
-  window.nekuNotice.use();
+  window.sendoffNotice.use();
 });
 document.getElementById('btn-dismiss').addEventListener('click', () => {
-  window.nekuNotice.dismiss();
+  window.sendoffNotice.dismiss();
 });
 
 // Escape dismisses, the way every other notification does
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.nekuNotice.dismiss();
+  if (e.key === 'Escape') window.sendoffNotice.dismiss();
 });
 
 /* The preview is the point: seeing the animation bounce in the corner is how he
@@ -60,7 +60,7 @@ window.addEventListener('keydown', (e) => {
    seeing the sprite is how he knows the tablet sent the drawing he meant. */
 (async () => {
   try {
-    const res = await window.nekuNotice.preview();
+    const res = await window.sendoffNotice.preview();
     if (!res || !res.ok || !res.data) return;
     const blob = new Blob([new Uint8Array(res.data)], { type: mimeFor(name) });
     const img = document.createElement('img');

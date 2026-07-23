@@ -1,4 +1,4 @@
-# Neku quick start (for the artist)
+# Sendoff quick start (for the artist)
 
 Justin built you a little courier for commissions: draw on the tablet → it appears on the
 laptop → it uploads the renamed files to your Google Drive and hands you the link to DM.
@@ -14,7 +14,7 @@ exe Justin sent.
 1. Open the link Justin sent in Chrome.
 2. Tap the **Install as an app** button right on the page (if you don't see it:
    menu (⋮) → **Add to Home screen** → Install). Open it like any app.
-3. That's it. After drawing: open Neku → **Choose sprite** (or share the PNG to Neku
+3. That's it. After drawing: open Sendoff → **Choose sprite** (or share the PNG to Sendoff
    straight from your drawing app) → check the preview → **Send to laptop**. The screen
    then waits until the laptop actually has it and says **The laptop has it**, so you
    never have to guess whether it went through or send it twice.
@@ -25,8 +25,8 @@ for you, not a store app. You'll only see that once.
 
 ## Laptop (2 minutes)
 
-1. Put `Neku-portable.exe` anywhere (Desktop is fine) and run it.
-   *(If Justin sent a `neku.config.json` with it, keep both files in the same folder.)*
+1. Put `Sendoff-portable.exe` anywhere (Desktop is fine) and run it.
+   *(If Justin sent a `sendoff.config.json` with it, keep both files in the same folder.)*
 2. Windows SmartScreen may complain the first time: **More info → Run anyway**
    (unsigned personal app, same reason as above).
 3. Click **Connect Drive** → sign in with the same Google account → **Advanced →
@@ -34,7 +34,7 @@ for you, not a store app. You'll only see that once.
 
 ## Daily use
 
-1. Neku opens by asking **which batch**. Tap the batch you're already working through, or
+1. Sendoff opens by asking **which batch**. Tap the batch you're already working through, or
    hit **Start Batch N** to begin a new one. It remembers your answer, so you only pick
    once per batch, even if you close the app halfway through. The first one it offers is
    **Batch 5**, picking up after the four you already did by hand (it can only see folders
@@ -45,14 +45,14 @@ for you, not a store app. You'll only see that once.
    Hit the small **✕** in the corner of it. It asks first, then puts that file in your
    Drive trash so the table is clear for the right one.
 3. Type the client's name. Animate on ezgif like always. When the gif finishes
-   downloading, a small Neku card slides into the bottom-right corner of the screen with
+   downloading, a small Sendoff card slides into the bottom-right corner of the screen with
    the animation playing in it. Hit **Use it** and the gif is attached, no dragging, no
    hunting for the window. (Dragging it from Downloads still works if you'd rather.)
 4. **Deliver to Drive** → wait for the checkmarks → **Copy link** → paste into the
    client's Twitter DM. Hit **Next commission** for the following one; it stays in the
    same batch, so you just keep going.
 
-Neku renames everything itself (`Name_sprite.png` + `bouncy.gif`) and files it under
+Sendoff renames everything itself (`Name_sprite.png` + `bouncy.gif`) and files it under
 `Commissions/Batch 5/<Name>` in your Drive, already shared for anyone with the link.
 Only the client's own folder is shared, so nobody can see the rest of the batch.
 
@@ -68,7 +68,7 @@ delivery with its link, ready to copy again.
 - **"Reconnect Google"?** Click it and sign in again; rare, takes seconds.
 - **Two sprites listed?** You sent twice. Click the one this commission is about, and use
   the ✕ on the other one if you want it gone.
-- **No corner card when the gif finishes?** Neku has to be open for it. You can see which
+- **No corner card when the gif finishes?** Sendoff has to be open for it. You can see which
   folder it is watching under the gear icon. Dragging the gif onto the window always works.
 - **Warning that a client folder already exists?** You've probably typo'd a name (or
   reused one). It tells you which batch the existing one is in. Double-check the spelling

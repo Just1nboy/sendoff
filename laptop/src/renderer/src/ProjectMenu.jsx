@@ -21,7 +21,7 @@ export default function ProjectMenu({ state, onPicked }) {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await window.neku.listProjects();
+    const res = await window.sendoff.listProjects();
     if (res.ok) setList(res.data);
     else setError(res.message);
   }, []);
@@ -34,7 +34,7 @@ export default function ProjectMenu({ state, onPicked }) {
     async (project) => {
       setBusy(true);
       setError(null);
-      const res = await window.neku.selectProject(project);
+      const res = await window.sendoff.selectProject(project);
       setBusy(false);
       if (res.ok) onPicked();
       else setError(res.message);
@@ -45,7 +45,7 @@ export default function ProjectMenu({ state, onPicked }) {
   const startNew = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const res = await window.neku.createProject();
+    const res = await window.sendoff.createProject();
     setBusy(false);
     if (res.ok) await open(res.data);
     else setError(res.message);
@@ -54,7 +54,7 @@ export default function ProjectMenu({ state, onPicked }) {
   /* test hooks (mock mode only, used by npm run shots) */
   useEffect(() => {
     if (!state.mock) return undefined;
-    window.__nekuProjectTest = {
+    window.__sendoffProjectTest = {
       startNew,
       open,
       count: () => (list ? list.projects.length : -1),

@@ -17,7 +17,7 @@ export default function HistorySheet({ onClose }) {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    window.neku.getHistory().then((res) => setEntries(res.ok ? res.data : []));
+    window.sendoff.getHistory().then((res) => setEntries(res.ok ? res.data : []));
   }, []);
 
   /* Client and project are the two things he'd remember about an old delivery.
@@ -39,7 +39,7 @@ export default function HistorySheet({ onClose }) {
   // keyed by the entry itself, not its position: filtering reshuffles the
   // indexes and the tick would drift onto somebody else's card
   async function copy(link, key) {
-    await window.neku.copyText(link);
+    await window.sendoff.copyText(link);
     setCopiedIdx(key);
     setTimeout(() => setCopiedIdx((c) => (c === key ? null : c)), 1600);
   }
@@ -101,7 +101,7 @@ export default function HistorySheet({ onClose }) {
                   <button
                     className="btn slim"
                     onClick={() =>
-                      en.isPath ? window.neku.openFolder(en.link) : window.neku.openLink(en.link)
+                      en.isPath ? window.sendoff.openFolder(en.link) : window.sendoff.openLink(en.link)
                     }
                   >
                     Open

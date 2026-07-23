@@ -33,7 +33,7 @@ export default function Setup({ onSaved }) {
 
   async function chooseFolder() {
     setError(null);
-    const res = await window.neku.pickFolder();
+    const res = await window.sendoff.pickFolder();
     if (res.ok && !res.data.canceled) setLocalRoot(res.data.path);
   }
 
@@ -43,7 +43,7 @@ export default function Setup({ onSaved }) {
   async function finish() {
     setSaving(true);
     setError(null);
-    const res = await window.neku.saveSettings({
+    const res = await window.sendoff.saveSettings({
       storage,
       localRoot: storage === 'local' ? localRoot : '',
       clientId: storage === 'drive' ? clientId.trim() : '',
@@ -67,7 +67,7 @@ export default function Setup({ onSaved }) {
           <>
             <h2>Where should deliveries go?</h2>
             <p className="lede">
-              Neku renames your files and files them into a folder per client. This is where
+              Sendoff renames your files and files them into a folder per client. This is where
               that folder tree lives.
             </p>
 
@@ -190,7 +190,7 @@ export default function Setup({ onSaved }) {
                 Back
               </button>
               <button className="btn primary" onClick={finish} disabled={saving}>
-                {saving ? 'Saving…' : storage === 'local' ? 'Start using Neku' : 'Save & connect Drive'}
+                {saving ? 'Saving…' : storage === 'local' ? 'Start using Sendoff' : 'Save & connect Drive'}
               </button>
             </div>
           </>

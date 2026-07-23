@@ -21,7 +21,7 @@ const api = {
   openLink: (url) => ipcRenderer.invoke('shell:open', url),
   openFolder: (target) => ipcRenderer.invoke('shell:openPath', target),
   pickFolder: () => ipcRenderer.invoke('folder:pick'),
-  // the gif Neku spotted landing in Downloads, if he has not used it yet
+  // the gif Sendoff spotted landing in Downloads, if he has not used it yet
   getLatestGif: () => ipcRenderer.invoke('gif:latest'),
   readGif: (filePath) => ipcRenderer.invoke('gif:read', filePath),
   setGifAttached: (attached) => ipcRenderer.invoke('gif:attached', attached),
@@ -46,10 +46,10 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld('neku', api);
+contextBridge.exposeInMainWorld('sendoff', api);
 
 /* The corner notice window shares this preload; it only ever needs these three. */
-contextBridge.exposeInMainWorld('nekuNotice', {
+contextBridge.exposeInMainWorld('sendoffNotice', {
   use: () => ipcRenderer.invoke('notice:use'),
   dismiss: () => ipcRenderer.invoke('notice:dismiss'),
   preview: () => ipcRenderer.invoke('notice:preview'),

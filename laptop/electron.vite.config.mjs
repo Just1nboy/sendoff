@@ -11,14 +11,14 @@ try {
   const raw = readFileSync(new URL('./oauth.config.json', import.meta.url), 'utf8');
   baked = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
 } catch {
-  // no baked config — the app falls back to a sidecar neku.config.json or the in-app setup screen
+  // no baked config — the app falls back to a sidecar sendoff.config.json or the in-app setup screen
 }
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
-      __NEKU_BAKED__: JSON.stringify(baked),
+      __SENDOFF_BAKED__: JSON.stringify(baked),
     },
   },
   preload: {

@@ -1,8 +1,8 @@
 /* Watches the Downloads folder for the finished attachment.
 
    The last step of the work happens in a browser tool (ezgif, an export, a
-   render) and the finished file lands in Downloads while Neku sits behind that
-   window. Rather than make him find the window and drag the file across, Neku
+   render) and the finished file lands in Downloads while Sendoff sits behind that
+   window. Rather than make him find the window and drag the file across, Sendoff
    notices it arriving and offers it. Dragging still works exactly as before;
    this is a shortcut, not a replacement.
 
@@ -71,7 +71,7 @@ async function consider(name, onGif) {
   }
   if (!stat.isFile()) return;
 
-  /* A gif that was already sitting in Downloads before Neku opened is not news;
+  /* A gif that was already sitting in Downloads before Sendoff opened is not news;
      fs.watch fires for plenty of reasons other than a fresh arrival. "Arrived"
      means the newest of the three stamps: a file moved in from elsewhere keeps
      its old mtime, and dropping one into Downloads by hand should still count. */

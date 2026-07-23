@@ -63,7 +63,7 @@ export function makeBouncyGif() {
   bytes.push(...[0x47, 0x49, 0x46, 0x38, 0x39, 0x61]); // "GIF89a"
   // logical screen: global colour table of 128 entries (2^(6+1))
   bytes.push(...u16(WIDTH), ...u16(HEIGHT), 0x96, 0x00, 0x00);
-  // the palette Neku uses everywhere: near-black, then the poster orange
+  // the palette Sendoff uses everywhere: near-black, then the poster orange
   const palette = new Array(128 * 3).fill(0);
   [palette[0], palette[1], palette[2]] = [0x14, 0x14, 0x14];
   [palette[3], palette[4], palette[5]] = [0xff, 0x6a, 0x00];

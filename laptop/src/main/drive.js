@@ -188,6 +188,8 @@ export async function listStaging(drive, stagingName) {
    the light table. Drive itself is the only thing both surfaces can see, so the
    laptop stamps the file as it appears on the light table and the tablet reads
    that stamp back off the file it uploaded. No server in between. */
+// wire key the deployed tablet reads off the file; do not rename without shipping
+// a matching tablet build, or the "laptop has it" handshake breaks
 export const SEEN_KEY = 'nekuSeen';
 
 // a stamp that keeps failing (revoked access to someone else's upload, say) must

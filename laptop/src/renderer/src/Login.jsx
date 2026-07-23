@@ -7,7 +7,7 @@ export default function Login({ onLoggedIn }) {
   async function connect() {
     setBusy(true);
     setError(null);
-    const res = await window.neku.login();
+    const res = await window.sendoff.login();
     setBusy(false);
     if (!res.ok) setError(res.message);
     else onLoggedIn();
@@ -21,7 +21,7 @@ export default function Login({ onLoggedIn }) {
           A browser tab opens for the Google sign-in. Use the Google account whose Drive
           should hold the deliveries. First time through, Google shows an
           &ldquo;unverified app&rdquo; warning: click <strong>Advanced &rarr; Continue</strong>.
-          That&rsquo;s expected, since Neku is a private app, not a store-published one.
+          That&rsquo;s expected, since Sendoff is a private app, not a store-published one.
         </p>
         {busy ? (
           <div className="login-wait">

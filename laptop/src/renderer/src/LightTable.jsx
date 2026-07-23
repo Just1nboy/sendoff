@@ -65,7 +65,7 @@ export default function LightTable({
       }
       setPreviewLoading(true);
       setPreviewUrl(null);
-      const res = await window.neku.getFileBytes(selection.id);
+      const res = await window.sendoff.getFileBytes(selection.id);
       if (cancelled) return;
       setPreviewLoading(false);
       if (res.ok) {
@@ -116,7 +116,7 @@ export default function LightTable({
         selection.kind === 'drive'
           ? { kind: 'drive', id: selection.id, name }
           : { kind: 'local', name, bytes: new Uint8Array(await selection.file.arrayBuffer()) };
-      const res = await window.neku.saveSprite(payload);
+      const res = await window.sendoff.saveSprite(payload);
       if (!res.ok) setSaved({ error: res.message });
       else if (!res.data.canceled) setSaved({ path: res.data.path });
     } catch (err) {
@@ -266,7 +266,7 @@ export default function LightTable({
             <span className="fname" title={saved.path}>
               Saved to {saved.path}
             </span>
-            <button className="btn slim" onClick={() => window.neku.revealFile(saved.path)}>
+            <button className="btn slim" onClick={() => window.sendoff.revealFile(saved.path)}>
               Show in folder
             </button>
           </div>

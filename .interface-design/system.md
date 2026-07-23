@@ -1,4 +1,4 @@
-# Neku design system
+# Sendoff design system
 
 **Product world:** the animator's desk. Light tables, the transparency checkerboard behind
 every sprite, kraft envelopes and packing slips, the courier run from desk to client.

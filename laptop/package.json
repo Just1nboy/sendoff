@@ -1,6 +1,6 @@
 {
-  "name": "neku-laptop",
-  "productName": "Neku",
+  "name": "sendoff-laptop",
+  "productName": "Sendoff",
   "version": "1.0.0",
   "description": "Commission delivery: pull the sprite from staging, pack it with the gif, upload to the client's Drive folder, get the link.",
   "main": "./out/main/index.js",
@@ -8,10 +8,10 @@
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
-    "mock": "cross-env NEKU_MOCK=1 electron-vite dev",
-    "shots": "cross-env NEKU_MOCK=1 NEKU_SHOT_DIR=shots NEKU_WATCH_DIR=shots/watch electron-vite dev",
-    "shots:photo": "cross-env NEKU_MOCK=1 NEKU_PRESET=photo NEKU_SHOT_DIR=shots-photo NEKU_WATCH_DIR=shots-photo/watch electron-vite dev",
-    "shots:wizard": "cross-env NEKU_FORCE_SETUP=1 NEKU_WIZARD_DIR=shots-wizard/folder NEKU_SHOT_DIR=shots-wizard electron-vite dev",
+    "mock": "cross-env SENDOFF_MOCK=1 electron-vite dev",
+    "shots": "cross-env SENDOFF_MOCK=1 SENDOFF_SHOT_DIR=shots SENDOFF_WATCH_DIR=shots/watch electron-vite dev",
+    "shots:photo": "cross-env SENDOFF_MOCK=1 SENDOFF_PRESET=photo SENDOFF_SHOT_DIR=shots-photo SENDOFF_WATCH_DIR=shots-photo/watch electron-vite dev",
+    "shots:wizard": "cross-env SENDOFF_FORCE_SETUP=1 SENDOFF_WIZARD_DIR=shots-wizard/folder SENDOFF_SHOT_DIR=shots-wizard electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "test": "node --test tests/naming.test.mjs tests/storage-local.test.mjs",
@@ -34,8 +34,8 @@
     "vite": "^5.4.11"
   },
   "build": {
-    "appId": "app.neku.laptop",
-    "productName": "Neku",
+    "appId": "app.sendoff.laptop",
+    "productName": "Sendoff",
     "directories": {
       "output": "release"
     },
@@ -48,7 +48,7 @@
       ]
     },
     "portable": {
-      "artifactName": "Neku-portable.exe"
+      "artifactName": "Sendoff-portable.exe"
     }
   }
 }

@@ -13,7 +13,7 @@ export default function App() {
   const [bootError, setBootError] = useState(null);
 
   const refreshState = useCallback(async () => {
-    const res = await window.neku.getState();
+    const res = await window.sendoff.getState();
     if (res.ok) setState(res.data);
     else setBootError(res.message);
     return res;
@@ -48,7 +48,7 @@ export default function App() {
     <div className="app">
       <header className="bar">
         <div>
-          <span className="mark">NEKU</span>
+          <span className="mark">SENDOFF</span>
           {/* what the app is actually writing to, so "did that really upload?"
               is answerable by looking up rather than by checking Drive */}
           <span className="route">
@@ -67,7 +67,7 @@ export default function App() {
             className="btn slim project-chip"
             title="Switch project"
             onClick={async () => {
-              await window.neku.leaveProject();
+              await window.sendoff.leaveProject();
               refreshState();
             }}
           >

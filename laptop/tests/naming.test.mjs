@@ -180,7 +180,7 @@ test('a revision template must contain the number token', () => {
   assert.equal(validateNaming({ ...DEFAULT_NAMING, revisionTemplate: 'v{n}' }), null);
 });
 
-test('the default naming is the setup Neku shipped with', () => {
+test('the default naming is the setup Sendoff shipped with', () => {
   // an existing install must not change behaviour just because templates exist
   assert.equal(DEFAULT_NAMING.projectTemplate, 'Batch {n}');
   assert.equal(DEFAULT_NAMING.firstProjectNumber, 5);

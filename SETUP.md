@@ -1,4 +1,4 @@
-# Neku setup for Justin (the one-time distributor)
+# Sendoff setup for Justin (the one-time distributor)
 
 Your friend never touches Google Cloud, configs, or terminals. **You** do the ~30-minute
 setup below once, on **your** Google account, then hand him two things:
@@ -6,7 +6,7 @@ setup below once, on **your** Google account, then hand him two things:
 1. a **link** (the tablet app), and
 2. an **exe** (the laptop app), plus [HANDOFF.md](HANDOFF.md), written for him.
 
-How this works: the Google Cloud project is just the *app's identity* ("Neku wants access
+How this works: the Google Cloud project is just the *app's identity* ("Sendoff wants access
 to…"). Your friend signs in with **his** Google account inside the apps, so everything
 lands in **his** Drive. Nothing of his routes through your account, and you never see his
 files. This is the same model every Drive-connected desktop app uses.
@@ -21,13 +21,13 @@ files. This is the same model every Drive-connected desktop app uses.
 > tablet uploaded.
 
 1. Go to <https://console.cloud.google.com/> and sign in (your account).
-2. Create a new project, name `Neku`.
+2. Create a new project, name `Sendoff`.
 3. **Enable the Drive API:** *APIs & Services → Library* → search "Google Drive API"
    → **Enable**. (Skip this and nothing works.)
 4. **Consent screen** (*APIs & Services → OAuth consent screen*, sometimes branded
    "Google Auth Platform"):
    - User type **External** → Create.
-   - App name `Neku`, your email in both email fields. Logo and the rest: skip.
+   - App name `Sendoff`, your email in both email fields. Logo and the rest: skip.
    - Scopes: add `https://www.googleapis.com/auth/drive.file` if the UI offers the step
      (the apps request it at runtime either way).
 5. **Publish to production:** on the consent screen page, set Publishing status to
@@ -39,9 +39,9 @@ files. This is the same model every Drive-connected desktop app uses.
    > sign in at all. Production status is what lets *his* account in.
 
 6. **Laptop OAuth client:** *Credentials → Create credentials → OAuth client ID* →
-   type **Desktop app**, name `Neku laptop`. Copy the **Client ID** and **Client secret**.
+   type **Desktop app**, name `Sendoff laptop`. Copy the **Client ID** and **Client secret**.
 7. **Tablet OAuth client:** *Create credentials → OAuth client ID* → type
-   **Web application**, name `Neku tablet`. Under **Authorized JavaScript origins** add
+   **Web application**, name `Sendoff tablet`. Under **Authorized JavaScript origins** add
    the exact PWA origin from Part 2 (e.g. `https://neku-tablet.netlify.app`, with no path
    and no trailing slash). Copy its **Client ID** (web clients need no secret here).
 
@@ -78,15 +78,15 @@ Two ways to get the Desktop credentials into the exe. Pick one:
 
 **Option A: bake into the exe (recommended: one file to send)**
 ```powershell
-cd "C:\Users\Justin\Desktop\Neku app\laptop"
+cd "C:\Users\Justin\Desktop\Sendoff app\laptop"
 copy oauth.config.example.json oauth.config.json
 notepad oauth.config.json     # paste the DESKTOP client id + secret
 npm run dist
 ```
-Result: `laptop\release\Neku-portable.exe`, deliverable #2, send as-is.
+Result: `laptop\release\Sendoff-portable.exe`, deliverable #2, send as-is.
 
 **Option B: sidecar file (no rebuild needed)**
-Keep the already-built `Neku-portable.exe` and put a `neku.config.json` **next to it**:
+Keep the already-built `Sendoff-portable.exe` and put a `sendoff.config.json` **next to it**:
 ```json
 {
   "clientId": "1234567890-xxxx.apps.googleusercontent.com",
@@ -99,7 +99,7 @@ Priority if several exist: in-app settings > sidecar file > baked values.
 
 > Is shipping the secret OK? Yes: Google documents that Desktop-app client secrets are
 > not treated as confidential; every installed Drive app ships one. The secret identifies
-> the app, not any account, and the scope is limited to files Neku itself creates.
+> the app, not any account, and the scope is limited to files Sendoff itself creates.
 
 ---
 
@@ -111,7 +111,7 @@ Do one full run yourself, signed in with **your** account, before sending anythi
    sign-in + "unverified app" → Advanced → Continue).
 2. Run the exe (SmartScreen: More info → Run anyway) → **Connect Drive** → same
    click-through.
-3. Batch menu appears → **Start Batch 5** (the first number Neku ever creates). Sprite
+3. Batch menu appears → **Start Batch 5** (the first number Sendoff ever creates). Sprite
    appears on the light table → type `Test`,
    drop any gif → **Deliver to Drive**.
 4. Check your Drive: `Commissions/Batch 5/Test/` has `Test_sprite.png` + `bouncy.gif`, the

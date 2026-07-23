@@ -98,9 +98,9 @@ function waitForCode(server) {
 
 function resultPage(ok) {
   const line = ok
-    ? 'Connected. You can close this tab and go back to Neku.'
-    : 'Sign-in was not completed. Close this tab and try again from Neku.';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Neku</title></head>
+    ? 'Connected. You can close this tab and go back to Sendoff.'
+    : 'Sign-in was not completed. Close this tab and try again from Sendoff.';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sendoff</title></head>
 <body style="background:#0a0a0a;color:#ffffff;font-family:Helvetica,Arial,sans-serif;display:grid;place-items:center;height:100vh;margin:0">
 <div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">${ok ? '&#10003;' : '!'}</div>
 <div style="font-size:17px;max-width:36ch">${line}</div></div></body></html>`;

@@ -4,7 +4,11 @@ laptop/release/
 laptop/shots*/
 tablet-checks/
 
+# local tooling, not part of the project
+.claude/
+CLAUDE.md
+
 # real credentials, never commit these
 laptop/oauth.config.json
-laptop/neku.config.json
+laptop/sendoff.config.json
 tablet/config.js

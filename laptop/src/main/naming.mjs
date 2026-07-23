@@ -1,4 +1,4 @@
-/* Naming templates: the single source for every name Neku writes into Drive.
+/* Naming templates: the single source for every name Sendoff writes into Drive.
 
    Nothing here is specific to one kind of work. A sprite artist's
    "{client}_sprite.png" and a photographer's "{client}_{date}{ext}" are the same
@@ -9,7 +9,7 @@
                                                    /{attached file}
    where {project} is itself a template, e.g. "Batch {n}" or "Shoot {n}".
 
-   PRESETS are prefilled sets of these templates. PRESETS[0] is the setup Neku
+   PRESETS are prefilled sets of these templates. PRESETS[0] is the setup Sendoff
    shipped with for its first user, and it is also the default, so an existing
    install keeps behaving exactly as it did before templates existed. */
 
@@ -124,7 +124,7 @@ export function parseProjectNumber(template, folderName) {
 
 /* ---------- revisions ----------
 
-   A repeat client is a revision, not a typo, for everyone except the artist Neku
+   A repeat client is a revision, not a typo, for everyone except the artist Sendoff
    was built for. Revisions live in a subfolder of the client folder ("v2", "v3"),
    which means: no file name can ever collide, the client's shared link is still
    the one folder and keeps working, and the first delivery is untouched — it
@@ -170,7 +170,7 @@ export const PRESETS = [
   {
     id: 'sprite-commission',
     name: 'Sprite commission',
-    hint: 'A sprite off the tablet plus an animation. What Neku shipped with.',
+    hint: 'A sprite off the tablet plus an animation. What Sendoff shipped with.',
     naming: {
       projectTemplate: 'Batch {n}',
       firstProjectNumber: 5,
@@ -218,7 +218,7 @@ export const PRESETS = [
 ];
 
 /** The naming a fresh install starts from. Deliberately the first user's setup:
-    an existing copy of Neku must not change behaviour when it updates. */
+    an existing copy of Sendoff must not change behaviour when it updates. */
 export const DEFAULT_NAMING = { ...PRESETS[0].naming };
 
 export function presetById(id) {

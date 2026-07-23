@@ -43,13 +43,13 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
 
   // "why didn't the gif notice appear" should be answerable by looking, not guessing
   useEffect(() => {
-    window.neku.getGifWatchInfo().then((res) => {
+    window.sendoff.getGifWatchInfo().then((res) => {
       if (res.ok) setWatch(res.data);
     });
   }, []);
 
   async function save() {
-    const res = await window.neku.saveSettings({ ...form, naming });
+    const res = await window.sendoff.saveSettings({ ...form, naming });
     if (!res.ok) {
       setError(res.message);
       return;
@@ -59,12 +59,12 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
   }
 
   async function chooseFolder() {
-    const res = await window.neku.pickFolder();
+    const res = await window.sendoff.pickFolder();
     if (res.ok && !res.data.canceled) setForm({ ...form, localRoot: res.data.path });
   }
 
   async function disconnect() {
-    await window.neku.logout();
+    await window.sendoff.logout();
     onChanged();
     onClose();
   }
@@ -219,7 +219,7 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
                 {form.localRoot || 'No folder chosen yet.'}
               </div>
               <div className="note">
-                Nothing is shared automatically: a folder on this computer has no link. Neku
+                Nothing is shared automatically: a folder on this computer has no link. Sendoff
                 offers to open the folder instead.
               </div>
             </>
@@ -246,7 +246,7 @@ export default function SettingsSheet({ state, onClose, onChanged }) {
               {watch.active ? watch.folder : `${watch.folder} (not being watched)`}
             </div>
             <div className="note">
-              When a file finishes downloading here, Neku offers it in the corner of the screen.
+              When a file finishes downloading here, Sendoff offers it in the corner of the screen.
               Dragging one onto the window always works too.
             </div>
           </div>

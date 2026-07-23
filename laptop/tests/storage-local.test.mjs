@@ -27,7 +27,7 @@ const SPRITE_BYTES = Buffer.from('a pretend png', 'utf8');
 const GIF_BYTES = Buffer.from('a pretend gif', 'utf8');
 
 async function freshHandle() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neku-local-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sendoff-local-'));
   return getDrive(dir);
 }
 
@@ -127,7 +127,7 @@ test('no half-written file is ever left wearing the final name', async () => {
   );
   const clientDir = path.join(handle.dir, ROOT_NAME, 'Batch 5', 'Aiko');
   const left = await fs.readdir(clientDir);
-  assert.deepEqual(left.filter((f) => f.endsWith('.neku-part')), []);
+  assert.deepEqual(left.filter((f) => f.endsWith('.sendoff-part')), []);
 });
 
 test('retrying a delivery whose move already happened is not an error', async () => {
@@ -229,11 +229,11 @@ test('discarding a staged file is recoverable, never a delete', async () => {
   assert.deepEqual((await listStaging(handle, STAGING)).files, []);
 
   // it is in the trash, whole, exactly like Drive's 30-day trash
-  const trash = await fs.readdir(path.join(handle.dir, '.neku-trash'));
+  const trash = await fs.readdir(path.join(handle.dir, '.sendoff-trash'));
   assert.equal(trash.length, 1);
   assert.ok(trash[0].endsWith('aiko_final.png'));
   assert.deepEqual(
-    await fs.readFile(path.join(handle.dir, '.neku-trash', trash[0])),
+    await fs.readFile(path.join(handle.dir, '.sendoff-trash', trash[0])),
     SPRITE_BYTES
   );
 });
@@ -243,13 +243,13 @@ test('discarding twice does not overwrite what is already in the trash', async (
   await discardStaged(handle, await stage(handle, 'same.png'));
   await new Promise((r) => setTimeout(r, 5));
   await discardStaged(handle, await stage(handle, 'same.png'));
-  const trash = await fs.readdir(path.join(handle.dir, '.neku-trash'));
+  const trash = await fs.readdir(path.join(handle.dir, '.sendoff-trash'));
   assert.equal(trash.length, 2);
 });
 
 test('the trash folder is never offered as a project', async () => {
   const handle = await freshHandle();
-  await fs.mkdir(path.join(handle.dir, ROOT_NAME, '.neku-trash'), { recursive: true });
+  await fs.mkdir(path.join(handle.dir, ROOT_NAME, '.sendoff-trash'), { recursive: true });
   const listed = await listProjects(handle, ROOT_NAME, DEFAULT_NAMING);
   assert.deepEqual(listed.projects, []);
 });

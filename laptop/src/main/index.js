@@ -1,8 +1,8 @@
-/* Neku main process: window, settings store, IPC surface, mock/real Drive switch.
+/* Sendoff main process: window, settings store, IPC surface, mock/real Drive switch.
 
    OAuth credentials resolve in priority order:
      1. Settings the user typed in-app (electron-store)
-     2. neku.config.json sitting next to the portable exe (no-rebuild handoff)
+     2. sendoff.config.json sitting next to the portable exe (no-rebuild handoff)
      3. Values baked in at build time from oauth.config.json (single-file handoff)
    The friend receiving a baked/sidecar build never sees a setup screen. */
 import fs from 'node:fs';
@@ -18,15 +18,15 @@ import { startGifWatch, stopGifWatch, wasAnnounced, watchIsActive } from './gif-
 import { matchPreset, presetById, resolveNaming, validateNaming } from './naming.mjs';
 import { hideNotice, showNotice } from './notice.js';
 
-const MOCK = process.env.NEKU_MOCK === '1';
+const MOCK = process.env.SENDOFF_MOCK === '1';
 
-const BAKED = typeof __NEKU_BAKED__ !== 'undefined' ? __NEKU_BAKED__ : {};
+const BAKED = typeof __SENDOFF_BAKED__ !== 'undefined' ? __SENDOFF_BAKED__ : {};
 
 function readSidecarConfig() {
   try {
     // portable builds run from a temp unpack dir; this env var points at the real exe
     const exeDir = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'));
-    const raw = fs.readFileSync(path.join(exeDir, 'neku.config.json'), 'utf8');
+    const raw = fs.readFileSync(path.join(exeDir, 'sendoff.config.json'), 'utf8');
     // tolerate a UTF-8 BOM from Notepad / Windows PowerShell
     return JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
   } catch {
@@ -37,28 +37,44 @@ const SIDECAR = readSidecarConfig();
 
 const FALLBACKS = { stagingName: 'Sprite Staging', rootName: 'Commissions' };
 
-const store = new Store({ name: MOCK ? 'neku-mock' : 'neku' });
+const store = new Store({ name: MOCK ? 'sendoff-mock' : 'sendoff' });
+
+/* This app shipped once under an earlier name. If an install from that era
+   updates to this build, its saved sign-in and delivery history sit under the
+   old userData directory; import them once so nothing the user relied on is
+   lost. This is the only place the previous name survives, purely as a path to
+   that old data. Guarded off mock and wizard runs so it can't touch a test. */
+if (!MOCK && !process.env.SENDOFF_FORCE_SETUP && store.size === 0) {
+  try {
+    const legacy = path.join(app.getPath('appData'), 'Neku', 'neku.json');
+    const raw = fs.readFileSync(legacy, 'utf8');
+    const data = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
+    for (const [key, value] of Object.entries(data)) store.set(key, value);
+  } catch {
+    /* nothing to import: a fresh install, which is the common case */
+  }
+}
 
 // autopilot runs must be reproducible: always start at the project menu, never in
 // whatever project the last run happened to leave open
-if (process.env.NEKU_SHOT_DIR) {
+if (process.env.SENDOFF_SHOT_DIR) {
   store.delete('currentProject');
   store.delete('currentBatch');
 }
 
 // a wizard run has to start with nothing chosen, every time
-if (process.env.NEKU_FORCE_SETUP === '1') {
+if (process.env.SENDOFF_FORCE_SETUP === '1') {
   store.delete('storage');
   store.delete('localRoot');
 }
 
-/* NEKU_PRESET=photo boots as a different trade, so the same self-driving run can
+/* SENDOFF_PRESET=photo boots as a different trade, so the same self-driving run can
    prove the flow is not tied to one set of names. Unset means the default. */
-if (process.env.NEKU_PRESET) {
-  const preset = presetById(process.env.NEKU_PRESET);
+if (process.env.SENDOFF_PRESET) {
+  const preset = presetById(process.env.SENDOFF_PRESET);
   if (preset) store.set('naming', resolveNaming(preset.naming));
   else store.delete('naming');
-} else if (process.env.NEKU_SHOT_DIR) {
+} else if (process.env.SENDOFF_SHOT_DIR) {
   // a shot run that names no preset must not inherit the last run's naming
   store.delete('naming');
 }
@@ -85,10 +101,10 @@ const pickSetting = (key) => store.get(key) || SIDECAR[key] || BAKED[key] || FAL
    definition, so it never asks: the person who packaged it already answered. */
 function effectiveStorage() {
   /* Capturing or driving the first-run screens on a machine that is already set
-     up. Same purpose as NEKU_MOCK_EMPTY: reach a state that only exists on
+     up. Same purpose as SENDOFF_MOCK_EMPTY: reach a state that only exists on
      somebody else's day one. It stops applying the moment the wizard saves a
      choice, or finishing the wizard would just show it again. */
-  if (process.env.NEKU_FORCE_SETUP === '1' && !store.get('storage')) return '';
+  if (process.env.SENDOFF_FORCE_SETUP === '1' && !store.get('storage')) return '';
   const chosen = store.get('storage') || SIDECAR.storage || BAKED.storage || '';
   if (chosen === 'local' || chosen === 'drive') return chosen;
   return auth.hasCreds({
@@ -131,7 +147,7 @@ function ops() {
 
 let win = null;
 
-// thumbnails cost ~1-15 KB each in neku.json; the newest 20 is plenty to
+// thumbnails cost ~1-15 KB each in sendoff.json; the newest 20 is plenty to
 // recognise recent work without the settings file growing
 const HISTORY_THUMBS = 20;
 
@@ -167,7 +183,7 @@ function createWindow() {
     minHeight: 660,
     show: false,
     backgroundColor: '#0a0a0a',
-    title: 'Neku',
+    title: 'Sendoff',
     autoHideMenuBar: true,
     webPreferences: {
       preload: PRELOAD(),
@@ -197,9 +213,9 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  if (process.env.NEKU_SHOT_DIR) {
+  if (process.env.SENDOFF_SHOT_DIR) {
     win.webContents.once('did-finish-load', () => {
-      const shotDir = path.resolve(process.env.NEKU_SHOT_DIR);
+      const shotDir = path.resolve(process.env.SENDOFF_SHOT_DIR);
       runAutopilot(win, shotDir, MOCK, effectiveNaming()).catch((err) => {
         console.error('[autopilot]', err);
         // a packaged run has no console attached, so the reason has to land on
@@ -221,7 +237,7 @@ function createWindow() {
 /* ---------- helpers ---------- */
 
 /** The project he picked from the menu, remembered across restarts so reopening
-    Neku mid-project drops him straight back into it.
+    Sendoff mid-project drops him straight back into it.
 
     Reads the pre-rename key too: an install that was mid-project when it updated
     must land back in that project, not be dumped at the menu. */
@@ -272,8 +288,8 @@ function friendlyMessage(err) {
 
 /* ---------- watching Downloads for the finished gif ---------- */
 
-/** He animates on ezgif with Neku behind the browser, so the moment the gif
-    lands is the moment he is looking somewhere else. Neku's own corner notice
+/** He animates on ezgif with Sendoff behind the browser, so the moment the gif
+    lands is the moment he is looking somewhere else. Sendoff's own corner notice
     (not a Windows one) carries the offer over to wherever he is. */
 function onGifFound(gif) {
   if (gifAttached) return;
@@ -294,10 +310,10 @@ function watchedExtensions() {
 }
 
 function beginGifWatch() {
-  if (process.env.NEKU_WATCH_DIR) {
+  if (process.env.SENDOFF_WATCH_DIR) {
     // the autopilot drops a real gif in to prove the whole chain; pointing it at
     // a temp folder keeps the test out of the actual Downloads folder
-    watchedFolder = path.resolve(process.env.NEKU_WATCH_DIR);
+    watchedFolder = path.resolve(process.env.SENDOFF_WATCH_DIR);
     fs.mkdirSync(watchedFolder, { recursive: true });
   } else {
     watchedFolder = app.getPath('downloads');
@@ -615,10 +631,10 @@ handle('gif:attached', (_e, attached) => {
 });
 
 /* The workbench's staging poll is what notices a sprite arriving, so it does the
-   telling. Suppressed while Neku is the focused window: the sprite lands on the
+   telling. Suppressed while Sendoff is the focused window: the sprite lands on the
    light table right in front of him there, and a card repeating that would be
    noise. (The gif notice has no such check — a downloaded gif shows up nowhere
-   in Neku on its own, so there is nothing for it to be redundant with.) */
+   in Sendoff on its own, so there is nothing for it to be redundant with.) */
 handle('sprite:arrived', (_e, sprite) => {
   if (!sprite || !sprite.id) return false;
   if (win && !win.isDestroyed() && win.isFocused()) return false;
@@ -655,7 +671,7 @@ handle('notice:preview', async () => {
   }
 });
 
-/** The primary button. Both kinds bring Neku forward, because clicking is him
+/** The primary button. Both kinds bring Sendoff forward, because clicking is him
     saying "yes, I want to deal with this now"; only the gif also has something
     to hand to the packing slip. */
 handle('notice:use', () => {
